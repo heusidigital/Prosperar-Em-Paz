@@ -3,6 +3,8 @@ import { getTransactions, getSources } from '../storage.js';
 import { openExpenseModal } from '../modals/expense-modal.js';
 import { openIncomeModal, openSourceModal, confirmIncome } from '../modals/income-modal.js';
 
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
 const CATEGORY_LABELS = {
   alimentacao: '🍔 Alimentação', transporte: '🚗 Transporte',
   moradia: '🏠 Moradia', saude: '💊 Saúde',
@@ -41,7 +43,7 @@ function buildExpenses(mk) {
       ${txs.length ? txs.map(tx => `
         <div class="item-row" onclick="window._editExpense('${tx.id}')">
           <div>
-            <div class="item-name">${tx.desc}</div>
+            <div class="item-name">${esc(tx.desc)}</div>
             <div class="item-meta">${CATEGORY_LABELS[tx.category] ?? tx.category} · ${tx.date}</div>
           </div>
           <div class="item-amount expense">${formatBRL(tx.amount)}</div>
@@ -71,7 +73,7 @@ function buildReceitas(mk) {
       ${fixed.map(s => {
         return `<div class="item-row">
           <div>
-            <div class="item-name">${s.name} <span class="badge badge-fixa">FIXA</span></div>
+            <div class="item-name">${esc(s.name)} <span class="badge badge-fixa">FIXA</span></div>
             <div class="item-meta status-row"><span class="dot dot-auto"></span>Automática · dia ${s.day}</div>
           </div>
           <div class="item-amount income">${formatBRL(s.amount)}</div>
@@ -89,10 +91,11 @@ function buildReceitas(mk) {
         const confirmed = tx?.confirmed;
         return `<div class="item-row">
           <div>
-            <div class="item-name">${s.name} <span class="badge badge-recorrente">RECORRENTE</span></div>
+            <div class="item-name">${esc(s.name)} <span class="badge badge-recorrente">RECORRENTE</span></div>
             <div class="item-meta status-row">
-              <span class="dot ${confirmed ? 'dot-ok' : 'dot-pend'}"></span>
-              ${confirmed ? 'Recebido' : `<button class="btn btn-ghost btn-sm" onclick="window._confirmIncome('${tx?.id}')">Confirmar recebimento</button>`}
+              ${!tx ? `<span class="dot dot-pend"></span>` :
+                confirmed ? `<span class="dot dot-ok"></span>Recebido` :
+                `<span class="dot dot-pend"></span><button class="btn btn-ghost btn-sm" onclick="window._confirmIncome('${tx.id}')">Confirmar recebimento</button>`}
             </div>
           </div>
           <div class="item-amount income">${formatBRL(s.amount)}</div>
@@ -109,7 +112,7 @@ function buildReceitas(mk) {
            .map(tx => `
         <div class="item-row">
           <div>
-            <div class="item-name">${tx.desc}</div>
+            <div class="item-name">${esc(tx.desc)}</div>
             <div class="item-meta">${tx.date}</div>
           </div>
           <div class="item-amount income">${formatBRL(tx.amount)}</div>

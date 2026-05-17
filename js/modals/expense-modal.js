@@ -1,6 +1,8 @@
 import { uuid, getDateStr } from '../utils.js';
 import { addTransaction, updateTransaction, removeTransaction } from '../storage.js';
 
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
 const CATEGORIES = [
   { id: 'alimentacao', label: '🍔 Alimentação' },
   { id: 'transporte',  label: '🚗 Transporte'  },
@@ -18,7 +20,7 @@ export function openExpenseModal(mk, tx = null) {
     <div class="modal-title">${isEdit ? 'Editar Despesa' : 'Nova Despesa'}</div>
     <div class="form-group">
       <label class="form-label">DESCRIÇÃO</label>
-      <input class="form-input" id="exp-desc" placeholder="Ex: Supermercado" value="${tx?.desc ?? ''}">
+      <input class="form-input" id="exp-desc" placeholder="Ex: Supermercado" value="${esc(tx?.desc ?? '')}">
     </div>
     <div class="form-group">
       <label class="form-label">VALOR (R$)</label>
