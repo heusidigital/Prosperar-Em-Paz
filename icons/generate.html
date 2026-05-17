@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head><title>Generate Icons</title></head>
+<body>
+<script>
+function makeIcon(size) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0,0,size,size);
+  ctx.fillStyle = '#c9a84c';
+  ctx.font = `bold ${size*0.35}px -apple-system, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('EFT', size/2, size/2);
+  return c.toDataURL('image/png');
+}
+
+const s192 = makeIcon(192);
+const s512 = makeIcon(512);
+
+document.write('<p>Right-click each image and "Save as" to save in the icons/ folder:</p>');
+document.write('<p>Save as <strong>icon-192.png</strong>:</p>');
+document.write('<img src="' + s192 + '" width="192"><br><br>');
+document.write('<p>Save as <strong>icon-512.png</strong>:</p>');
+document.write('<img src="' + s512 + '" width="192">');
+</script>
+</body>
+</html>
