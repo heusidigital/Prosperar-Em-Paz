@@ -63,6 +63,7 @@ export function sumTransactions(monthKeys) {
   let income = 0, expense = 0;
   for (const mk of monthKeys) {
     for (const tx of getTransactions(mk)) {
+      // Unconfirmed income = not yet received; unconfirmed expenses = committed, count them
       if (!tx.confirmed && tx.type === 'income') continue;
       if (tx.type === 'income') income += tx.amount;
       else expense += tx.amount;
@@ -71,6 +72,7 @@ export function sumTransactions(monthKeys) {
   return { income, expense, balance: income - expense };
 }
 
+// Card expenses (financa_card_expenses_*) are excluded — callers handle them separately
 export function expensesByCategory(monthKeys) {
   const map = {};
   for (const mk of monthKeys) {

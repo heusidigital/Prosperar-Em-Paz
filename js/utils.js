@@ -18,9 +18,9 @@ export function getDateStr(date = new Date()) {
 }
 
 export function formatMonthLabel(monthKey) {
-  const [y, m] = monthKey.split('-');
-  const date = new Date(Number(y), Number(m) - 1, 1);
-  return date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).toUpperCase();
+  const MONTHS = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+  const [y, m] = monthKey.split('-').map(Number);
+  return `${MONTHS[m - 1]}/${String(y).slice(2)}`;
 }
 
 export function formatMonthFull(monthKey) {
@@ -54,6 +54,7 @@ export function getPastMonths(n) {
 }
 
 export function installmentQuitMonth(startMonth, totalInstallments) {
+  if (!totalInstallments || totalInstallments < 1) return '—';
   const [y, m] = startMonth.split('-').map(Number);
   const d = new Date(y, m - 1 + totalInstallments - 1, 1);
   return d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
