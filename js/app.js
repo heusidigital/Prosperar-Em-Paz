@@ -1,5 +1,5 @@
 import { getMonthKey, getDateStr, formatMonthFull, uuid } from './utils.js';
-import { getSources, getTransactions, setTransactions, getCards, getCardExpenses, setCardExpenses,
+import { getSources, getTransactions, setTransactions, getCards, setCards, getCardExpenses, setCardExpenses,
          getScheduled, isMonthInit, setMonthInit } from './storage.js';
 import { renderDashboard } from './pages/dashboard.js';
 import { renderTransactions } from './pages/transactions.js';
@@ -56,7 +56,8 @@ function initMonth(mk) {
   const [y, m] = mk.split('-').map(Number);
   const cardExpenses = getCardExpenses(mk);
   const newCardExpenses = [...cardExpenses];
-  for (const card of getCards()) {
+  const cards = getCards();
+  for (const card of cards) {
     for (const rec of card.recurring ?? []) {
       const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(rec.day).padStart(2,'0')}`;
       newCardExpenses.push({ id: uuid(), cardId: card.id, date: dateStr, desc: rec.desc, amount: rec.amount, isRecurring: true });
@@ -69,6 +70,7 @@ function initMonth(mk) {
       }
     }
   }
+  setCards(cards);   // persist updated paidInstallments
   setCardExpenses(mk, newCardExpenses);
 
   const scheduledForMonth = getScheduled().filter(s => s.dueMonth === m);
