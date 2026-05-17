@@ -91,6 +91,7 @@ html, body {
   bottom: var(--nav-height);
   left: 0; right: 0;
   overflow: hidden;
+  padding-top: env(safe-area-inset-top);
 }
 
 .page {
@@ -106,7 +107,7 @@ html, body {
 
 .page.active {
   opacity: 1;
-  pointer-events: all;
+  pointer-events: auto;
 }
 
 .section-label {
