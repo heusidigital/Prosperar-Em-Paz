@@ -8,6 +8,7 @@ import { renderGoals } from './pages/goals.js';
 
 let currentPage = 'dashboard';
 const MONTH_KEY = getMonthKey();
+window._currentMk = MONTH_KEY;
 
 // ── ROUTER ───────────────────────────────────────────────
 window.navigate = function(page) {
