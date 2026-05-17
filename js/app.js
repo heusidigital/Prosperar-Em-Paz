@@ -95,5 +95,5 @@ setHeaderMonth();
 renderPage('dashboard');
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/engenharia-finan%C3%A7as/service-worker.js');
+  navigator.serviceWorker.register('/Prosperar-Em-Paz/service-worker.js');
 }
