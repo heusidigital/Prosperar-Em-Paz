@@ -81,7 +81,7 @@ function buildCardSection(card, mk) {
         <div class="item-row">
           <div>
             <div class="item-name">${esc(loan.desc)}</div>
-            <div class="item-meta">Parcela ${loan.paidInstallments} de ${loan.totalInstallments} · quita em ${installmentQuitMonth(loan.startMonth, loan.totalInstallments)}</div>
+            <div class="item-meta">Parcela ${loan.paidInstallments + 1} de ${loan.totalInstallments} · quita em ${installmentQuitMonth(loan.startMonth, loan.totalInstallments)}</div>
           </div>
           <div class="item-amount expense">${formatBRL(loan.installmentAmount)}</div>
         </div>`).join('') : '<p class="text-muted" style="padding:8px 0">Nenhum empréstimo ativo</p>'}
