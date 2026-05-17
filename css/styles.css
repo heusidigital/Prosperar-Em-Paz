@@ -1,0 +1,129 @@
+:root {
+  --color-bg: #f7f7f9;
+  --color-header: #1a1a2e;
+  --color-card: #ffffff;
+  --color-border: #e8e8f0;
+  --color-gold: #c9a84c;
+  --color-gold-dim: #c9a84c33;
+  --color-income: #2a7a5a;
+  --color-income-dim: #2a7a5a22;
+  --color-expense: #b07a2a;
+  --color-expense-dim: #b07a2a22;
+  --color-text: #1a1a2e;
+  --color-text-muted: #aaaaaa;
+  --color-text-light: #ffffff;
+  --color-nav: #ffffff;
+  --color-nav-border: #eeeeee;
+  --header-height: 110px;
+  --nav-height: 64px;
+  --radius: 14px;
+  --radius-sm: 10px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+.app-header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  background: var(--color-header);
+  padding: 16px 20px 14px;
+  padding-top: calc(16px + env(safe-area-inset-top));
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.brand-name {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--color-gold);
+  line-height: 1.4;
+}
+
+.brand-sub {
+  font-size: 8px;
+  color: #ffffff55;
+  letter-spacing: 1px;
+  margin-top: 3px;
+}
+
+.header-month {
+  font-size: 10px;
+  color: #ffffff66;
+  letter-spacing: 1px;
+  margin-top: 4px;
+  text-transform: capitalize;
+}
+
+.opening-phrase {
+  border-left: 3px solid var(--color-gold);
+  padding: 8px 12px;
+  border-radius: 0 8px 8px 0;
+  background: #ffffff0d;
+}
+
+.opening-phrase p {
+  color: #ffffffcc;
+  font-size: 11px;
+  font-style: italic;
+  line-height: 1.5;
+  font-weight: 300;
+}
+
+.app-main {
+  position: fixed;
+  top: var(--header-height);
+  bottom: var(--nav-height);
+  left: 0; right: 0;
+  overflow: hidden;
+}
+
+.page {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: 16px 16px 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  -webkit-overflow-scrolling: touch;
+}
+
+.page.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.section-label {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--color-text-muted);
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+h3 { font-size: 14px; font-weight: 700; color: var(--color-text); }
+
+.text-muted { color: var(--color-text-muted); font-size: 11px; }
+.text-income { color: var(--color-income); }
+.text-expense { color: var(--color-expense); }
+.text-gold { color: var(--color-gold); }
+
+.divider { height: 1px; background: var(--color-border); margin: 14px 0; }

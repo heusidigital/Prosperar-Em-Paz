@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a1a2e">
+  <title>Engenharia Financeira do Triunfo</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+  <!-- HEADER (fixed, visible on all pages) -->
+  <header class="app-header">
+    <div class="header-top">
+      <div class="brand">
+        <div class="brand-name">ENGENHARIA FINANCEIRA<br>DO TRIUNFO</div>
+        <div class="brand-sub">Controle, consciência e prosperidade em paz.</div>
+      </div>
+      <div class="header-month" id="header-month"></div>
+    </div>
+    <div class="opening-phrase">
+      <p>"Hoje eu governo meu fluxo financeiro com consciência."</p>
+    </div>
+  </header>
+
+  <!-- PAGES -->
+  <main class="app-main">
+    <div class="page active" id="page-dashboard"></div>
+    <div class="page" id="page-transactions"></div>
+    <div class="page" id="page-cards"></div>
+    <div class="page" id="page-goals"></div>
+  </main>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" onclick="navigate('dashboard')" data-page="dashboard">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-dot"></span>
+      <span class="nav-label">DASHBOARD</span>
+    </button>
+    <button class="nav-item" onclick="navigate('transactions')" data-page="transactions">
+      <span class="nav-icon">💸</span>
+      <span class="nav-dot"></span>
+      <span class="nav-label">LANÇAMENTOS</span>
+    </button>
+    <button class="nav-item" onclick="navigate('cards')" data-page="cards">
+      <span class="nav-icon">💳</span>
+      <span class="nav-dot"></span>
+      <span class="nav-label">CARTÕES</span>
+    </button>
+    <button class="nav-item" onclick="navigate('goals')" data-page="goals">
+      <span class="nav-icon">🎯</span>
+      <span class="nav-dot"></span>
+      <span class="nav-label">METAS</span>
+    </button>
+  </nav>
+
+  <!-- MODAL OVERLAY -->
+  <div class="modal-overlay" id="modal-overlay" onclick="closeModal()"></div>
+  <div class="modal-container" id="modal-container"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
