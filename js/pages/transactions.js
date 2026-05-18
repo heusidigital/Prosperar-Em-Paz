@@ -1,6 +1,6 @@
 import { formatBRL } from '../utils.js';
 import { uuid, getDateStr } from '../utils.js';
-import { getTransactions, getSources, addTransaction, updateTransaction, removeTransaction, removeSource } from '../storage.js';
+import { getTransactions, getSources, addTransaction, updateTransaction, removeTransaction, removeSource, getCards } from '../storage.js';
 import { openExpenseModal } from '../modals/expense-modal.js';
 import { openIncomeModal, openSourceModal, openManageSources, confirmIncome } from '../modals/income-modal.js';
 
@@ -70,6 +70,14 @@ function buildExpenses(mk) {
       </div>
     </div>`;
 
+  // ── Assinaturas dos cartões (leitura direta de card.recurring) ──
+  const cards = getCards();
+  // Monta lista plana com referência ao cartão, ordenada por dia do mês
+  const allSubs = cards.flatMap(c =>
+    (c.recurring ?? []).map(r => ({ ...r, cardName: c.name }))
+  ).sort((a, b) => a.day - b.day);
+  const totalSubs = allSubs.reduce((s, r) => s + r.amount, 0);
+
   return `
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <div class="card" style="flex:1">
@@ -90,9 +98,36 @@ function buildExpenses(mk) {
 
     ${pend.length ? `
     <div class="section-label">DESPESAS PENDENTES</div>
-    <div class="card">
+    <div class="card" style="margin-bottom:10px">
       ${pend.map(rowPend).join('')}
-    </div>` : ''}`;
+    </div>` : ''}
+
+    <div class="section-label" style="margin-top:4px">
+      ASSINATURAS DOS CARTÕES
+      <span style="font-size:9px;color:var(--color-text-muted);font-weight:400;letter-spacing:0">
+        · gerenciado em Cartões · não duplica no saldo
+      </span>
+    </div>
+    <div class="card" style="margin-bottom:4px">
+      ${allSubs.length ? `
+        ${allSubs.map(r => `
+          <div class="item-row" style="padding:8px 0">
+            <div style="flex:1">
+              <div class="item-name" style="font-size:13px">${esc(r.desc)}</div>
+              <div class="item-meta">Dia ${r.day}
+                <span style="margin-left:6px;background:var(--color-header);color:#ffffff88;
+                             font-size:9px;padding:1px 6px;border-radius:4px">${esc(r.cardName)}</span>
+              </div>
+            </div>
+            <div class="item-amount" style="color:var(--color-expense)">${formatBRL(r.amount)}</div>
+          </div>`).join('')}
+        <div style="border-top:1px solid var(--color-border);margin-top:6px;padding-top:8px;
+                    display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:10px;letter-spacing:1px;color:var(--color-text-muted)">TOTAL ASSINATURAS/MÊS</span>
+          <span style="font-size:16px;font-weight:700;color:var(--color-expense)">${formatBRL(totalSubs)}</span>
+        </div>`
+      : '<div class="empty-state">Nenhuma assinatura cadastrada nos cartões</div>'}
+    </div>`;
 }
 
 // ── AUTO-REPARO: garante que toda fonte fixa/recorrente tem transação no mês ──
