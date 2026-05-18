@@ -85,16 +85,6 @@ export function openManageSources() {
   `);
 }
 
-window._srcDelete = function(id) {
-  if (!confirm('Remover esta fonte? Os lançamentos já feitos não serão apagados.')) return;
-  removeSource(id);
-  openManageSources();
-};
-
-window._srcNew = function(type) {
-  openSourceModal(type);
-};
-
 export function confirmIncome(mk, txId) {
   const tx = getTransactions(mk).find(t => t.id === txId);
   if (tx) updateTransaction(mk, { ...tx, confirmed: true });
@@ -120,5 +110,32 @@ window._srcSave = function(type) {
   if (type === 'fixa' && !day) return alert('Informe o dia.');
   const src = { id: uuid(), name, type, ...(amount && { amount }), ...(day && { day }) };
   addSource(src);
+
+  // Cria a transação do mês atual imediatamente ao cadastrar a fonte
+  const mk = window._txMk;
+  if (mk && amount && (type === 'fixa' || type === 'recorrente')) {
+    const alreadyExists = getTransactions(mk).find(t => t.sourceId === src.id);
+    if (!alreadyExists) {
+      addTransaction(mk, {
+        id: uuid(),
+        date: getDateStr(),
+        type: 'income',
+        sourceId: src.id,
+        amount: src.amount,
+        desc: src.name,
+        confirmed: type === 'fixa',   // fixa = já confirmado, recorrente = aguardando
+      });
+    }
+  }
   closeModal();
+};
+
+window._srcDelete = function(id) {
+  if (!confirm('Remover esta fonte? Os lançamentos já feitos não serão apagados.')) return;
+  removeSource(id);
+  openManageSources();
+};
+
+window._srcNew = function(type) {
+  openSourceModal(type);
 };
