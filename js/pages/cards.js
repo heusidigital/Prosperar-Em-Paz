@@ -33,10 +33,14 @@ function buildCardSection(card, mk) {
   const closed    = getClosedInvoice(card.id, mk);       // { amount, paid }
 
   // ── FATURA CORRENTE (auto-calculated) ────────────────────
-  const totalSubs   = (card.recurring ?? []).reduce((s, r) => s + r.amount, 0);
-  const totalLoans  = cardLoans.reduce((s, l) => s + l.installmentAmount, 0);
+  // Só assinaturas cujo dia de vencimento é APÓS o fechamento do cartão
+  // (as anteriores já estão embutidas na fatura fechada que o banco enviou)
+  const closeDay    = card.closeDay ?? 1;
+  const subsCorrente = (card.recurring ?? []).filter(r => r.day > closeDay);
+  const totalSubs   = subsCorrente.reduce((s, r) => s + r.amount, 0);
+  // Empréstimos NÃO entram na fatura corrente — são dívidas separadas (boleto/débito)
   const totalAvulso = avulsos.reduce((s, e) => s + e.amount, 0);
-  const corrente    = totalSubs + totalLoans + totalAvulso;
+  const corrente    = totalSubs + totalAvulso;
 
   const available = card.limit ? card.limit - corrente : null;
 
@@ -55,53 +59,56 @@ function buildCardSection(card, mk) {
       <!-- Dual invoice row -->
       <div style="display:grid;grid-template-columns:1fr 1px 1fr;gap:0;align-items:start">
 
-        <!-- Left: FATURA FECHADA -->
+        <!-- Left: FATURA CORRENTE (auto-calculada) -->
         <div style="padding-right:12px">
-          <div style="font-size:8px;letter-spacing:1px;color:#ffffff55;margin-bottom:4px">FATURA FECHADA</div>
-          <div style="font-size:20px;font-weight:700;color:${closed.paid ? 'var(--color-income)' : 'var(--color-gold)'}">
-            ${formatBRL(closed.amount)}
-          </div>
-          ${closed.paid
-            ? `<div style="font-size:9px;color:var(--color-income);margin-top:3px">✓ Paga</div>`
-            : closed.amount > 0
-              ? `<div style="font-size:9px;color:#ffffff55;margin-top:3px">Em aberto</div>`
-              : `<div style="font-size:9px;color:#ffffff33;margin-top:3px">Sem fatura fechada</div>`
-          }
-          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-            <button onclick="window._openClosedInvoice('${card.id}')"
-              style="background:#ffffff15;border:1px solid #ffffff33;color:#fff;border-radius:6px;
-                     padding:4px 8px;font-size:10px;cursor:pointer">
-              ${closed.amount > 0 ? '✏️ Editar' : '+ Lançar'}
-            </button>
-            ${closed.amount > 0 && !closed.paid ? `
-            <button onclick="window._payClosedInvoice('${card.id}')"
-              style="background:var(--color-income-dim);border:1px solid var(--color-income);
-                     color:var(--color-income);border-radius:6px;padding:4px 8px;font-size:10px;cursor:pointer">
-              ✓ Pagar
-            </button>` : ''}
-            ${closed.paid ? `
-            <button onclick="window._reopenClosedInvoice('${card.id}')"
-              style="background:none;border:1px solid #ffffff33;color:#ffffff66;border-radius:6px;
-                     padding:4px 8px;font-size:10px;cursor:pointer">
-              Reabrir
-            </button>` : ''}
+          <div style="font-size:8px;letter-spacing:1px;color:#ffffff55;margin-bottom:4px">FATURA CORRENTE</div>
+          <div style="font-size:20px;font-weight:700;color:var(--color-expense)">${formatBRL(corrente)}</div>
+          ${available !== null
+            ? `<div style="font-size:11px;color:#ffffff77;margin-top:3px">Disponível: ${formatBRL(available)}</div>`
+            : ''}
+          <div style="margin-top:10px;font-size:11px;color:#ffffff88;line-height:2">
+            ${subsCorrente.length > 0
+              ? `<div>📱 Assinaturas: <b>${formatBRL(totalSubs)}</b></div>`
+              : `<div style="color:#ffffff44">Sem assinaturas neste ciclo</div>`}
+            ${totalAvulso > 0
+              ? `<div>🧾 Avulsos: <b>${formatBRL(totalAvulso)}</b></div>`
+              : `<div style="color:#ffffff44">+ Gasto para adicionar</div>`}
           </div>
         </div>
 
         <!-- Divider -->
         <div style="background:#ffffff22;width:1px;align-self:stretch"></div>
 
-        <!-- Right: FATURA CORRENTE -->
+        <!-- Right: FATURA FECHADA (manual) -->
         <div style="padding-left:12px">
-          <div style="font-size:8px;letter-spacing:1px;color:#ffffff55;margin-bottom:4px">FATURA CORRENTE</div>
-          <div style="font-size:20px;font-weight:700;color:var(--color-expense)">${formatBRL(corrente)}</div>
-          ${available !== null
-            ? `<div style="font-size:9px;color:#ffffff55;margin-top:3px">Disponível: ${formatBRL(available)}</div>`
-            : `<div style="font-size:9px;color:#ffffff33;margin-top:3px">Auto-calculado</div>`}
-          <div style="margin-top:8px;font-size:9px;color:#ffffff55;line-height:1.7">
-            <div>Assinaturas: ${formatBRL(totalSubs)}</div>
-            ${totalLoans > 0 ? `<div>Empréstimos: ${formatBRL(totalLoans)}</div>` : ''}
-            ${totalAvulso > 0 ? `<div>Avulsos: ${formatBRL(totalAvulso)}</div>` : ''}
+          <div style="font-size:8px;letter-spacing:1px;color:#ffffff55;margin-bottom:4px">FATURA FECHADA</div>
+          <div style="font-size:20px;font-weight:700;color:${closed.paid ? 'var(--color-income)' : 'var(--color-gold)'}">
+            ${formatBRL(closed.amount)}
+          </div>
+          ${closed.paid
+            ? `<div style="font-size:11px;color:var(--color-income);margin-top:3px">✓ Paga</div>`
+            : closed.amount > 0
+              ? `<div style="font-size:11px;color:#ffffff88;margin-top:3px">Aguardando pagamento</div>`
+              : `<div style="font-size:11px;color:#ffffff44;margin-top:3px">Sem fatura fechada</div>`
+          }
+          <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+            <button onclick="window._openClosedInvoice('${card.id}')"
+              style="background:#ffffff15;border:1px solid #ffffff33;color:#fff;border-radius:6px;
+                     padding:5px 10px;font-size:11px;cursor:pointer">
+              ${closed.amount > 0 ? '✏️ Editar' : '+ Lançar fatura'}
+            </button>
+            ${closed.amount > 0 && !closed.paid ? `
+            <button onclick="window._payClosedInvoice('${card.id}')"
+              style="background:var(--color-income-dim);border:1px solid var(--color-income);
+                     color:var(--color-income);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">
+              ✓ Pagar
+            </button>` : ''}
+            ${closed.paid ? `
+            <button onclick="window._reopenClosedInvoice('${card.id}')"
+              style="background:none;border:1px solid #ffffff33;color:#ffffff66;border-radius:6px;
+                     padding:5px 10px;font-size:11px;cursor:pointer">
+              Reabrir
+            </button>` : ''}
           </div>
         </div>
       </div>

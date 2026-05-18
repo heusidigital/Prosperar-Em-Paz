@@ -126,28 +126,32 @@ function buildChart(months, currentMk) {
 function buildCardChip(card, mk) {
   const expenses    = getCardExpenses(mk).filter(e => e.cardId === card.id);
   const avulsos     = expenses.filter(e => !e.isRecurring && !e.isLoan);
-  const cardLoans   = (card.loans ?? []).filter(l => l.paidInstallments < l.totalInstallments);
-  const totalSubs   = (card.recurring ?? []).reduce((s, r) => s + r.amount, 0);
-  const totalLoans  = cardLoans.reduce((s, l) => s + l.installmentAmount, 0);
+  const closeDay    = card.closeDay ?? 1;
+  const totalSubs   = (card.recurring ?? []).filter(r => r.day > closeDay).reduce((s, r) => s + r.amount, 0);
   const totalAvulso = avulsos.reduce((s, e) => s + e.amount, 0);
-  const corrente    = totalSubs + totalLoans + totalAvulso;
+  const corrente    = totalSubs + totalAvulso;
   const closed      = getClosedInvoice(card.id, mk);
 
   return `
-    <div class="card-dark" onclick="window._goCards && window._goCards()" style="cursor:pointer">
+    <div class="card-dark">
       <div style="font-size:8px;letter-spacing:1px;color:#ffffff55;margin-bottom:4px">CARTÃO</div>
-      <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:8px">${card.name}</div>
+      <div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:10px">${card.name}</div>
 
-      ${closed.amount > 0 ? `
-      <div style="font-size:8px;color:#ffffff55;letter-spacing:1px">FATURA FECHADA</div>
-      <div style="font-size:13px;font-weight:700;color:${closed.paid ? 'var(--color-income)' : 'var(--color-gold)'};margin-bottom:4px">
-        ${formatBRL(closed.amount)}
-        <span style="font-size:9px;font-weight:400;margin-left:4px">${closed.paid ? '✓ paga' : 'em aberto'}</span>
-      </div>` : ''}
-
-      <div style="font-size:8px;color:#ffffff55;letter-spacing:1px">FATURA CORRENTE</div>
-      <div style="font-size:13px;font-weight:700;color:var(--color-expense);margin-bottom:2px">${formatBRL(corrente)}</div>
-      <div style="font-size:9px;color:#ffffff55">vence dia ${card.dueDay}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <div style="font-size:8px;color:#ffffff55;letter-spacing:1px;margin-bottom:2px">CORRENTE</div>
+          <div style="font-size:13px;font-weight:700;color:var(--color-expense)">${formatBRL(corrente)}</div>
+        </div>
+        <div>
+          <div style="font-size:8px;color:#ffffff55;letter-spacing:1px;margin-bottom:2px">FECHADA</div>
+          <div style="font-size:13px;font-weight:700;color:${closed.amount > 0 ? (closed.paid ? 'var(--color-income)' : 'var(--color-gold)') : '#ffffff33'}">
+            ${closed.amount > 0 ? formatBRL(closed.amount) : '—'}
+          </div>
+          ${closed.amount > 0 && !closed.paid ? `<div style="font-size:9px;color:var(--color-gold)">em aberto</div>` : ''}
+          ${closed.paid ? `<div style="font-size:9px;color:var(--color-income)">✓ paga</div>` : ''}
+        </div>
+      </div>
+      <div style="font-size:9px;color:#ffffff44;margin-top:6px">vence dia ${card.dueDay}</div>
     </div>`;
 }
 
