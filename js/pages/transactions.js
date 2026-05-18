@@ -38,12 +38,17 @@ function buildExpenses(mk) {
   const totalPendente = pend.reduce((s,t) => s + t.amount, 0);
 
   const rowPaga = tx => `
-    <div class="item-row" onclick="window._editExpense('${tx.id}')">
-      <div>
+    <div class="item-row">
+      <div style="flex:1;cursor:pointer" onclick="window._editExpense('${tx.id}')">
         <div class="item-name">${esc(tx.desc)}</div>
         <div class="item-meta">${CATEGORY_LABELS[tx.category] ?? tx.category} · ${tx.date}</div>
       </div>
-      <div class="item-amount expense">${formatBRL(tx.amount)}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="item-amount expense">${formatBRL(tx.amount)}</div>
+        <button onclick="window._editExpense('${tx.id}')"
+          style="background:none;border:none;color:var(--color-text-muted);font-size:15px;
+                 cursor:pointer;padding:2px 4px;line-height:1" title="Editar">✏️</button>
+      </div>
     </div>`;
 
   const rowPend = tx => `
