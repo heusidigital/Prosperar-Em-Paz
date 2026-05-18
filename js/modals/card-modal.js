@@ -1,5 +1,5 @@
 import { uuid, getDateStr, installmentQuitMonth, getMonthKey } from '../utils.js';
-import { getCards, setCards, addCardExpense } from '../storage.js';
+import { getCards, setCards, addCardExpense, getCardExpenses, setCardExpenses } from '../storage.js';
 
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
@@ -114,8 +114,33 @@ window._crSave = function(cardId) {
   const cards = getCards();
   const card  = cards.find(c => c.id === cardId);
   if (!card) return;
-  card.recurring.push({ id: uuid(), desc, amount, day });
+  const newRec = { id: uuid(), desc, amount, day };
+  card.recurring.push(newRec);
   setCards(cards);
+
+  // Adiciona imediatamente nos gastos do mês atual (sem esperar o próximo mês)
+  const mk = window._cardMk;
+  if (mk) {
+    const [y, m] = mk.split('-').map(Number);
+    const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    addCardExpense(mk, { id: uuid(), cardId, date: dateStr, desc, amount, isRecurring: true, recurringId: newRec.id });
+  }
+  closeModal();
+};
+
+window._crDelete = function(cardId, recurringId) {
+  if (!confirm('Remover esta assinatura? Ela não aparecerá nos próximos meses.')) return;
+  const cards = getCards();
+  const card  = cards.find(c => c.id === cardId);
+  if (!card) return;
+  card.recurring = (card.recurring ?? []).filter(r => r.id !== recurringId);
+  setCards(cards);
+  // Remove também do mês atual
+  const mk = window._cardMk;
+  if (mk) {
+    const expenses = getCardExpenses(mk).filter(e => e.recurringId !== recurringId);
+    setCardExpenses(mk, expenses);
+  }
   closeModal();
 };
 

@@ -62,13 +62,18 @@ function buildCardSection(card, mk) {
         ASSINATURAS
         <button class="btn btn-ghost btn-sm" onclick="window._openRecurring('${card.id}')">+ Adicionar</button>
       </div>
-      ${recurring.length ? recurring.map(e => `
+      ${card.recurring?.length ? card.recurring.map(r => `
         <div class="item-row">
-          <div>
-            <div class="item-name">${esc(e.desc)}</div>
-            <div class="item-meta">Dia ${e.date.split('-')[2].replace(/^0/,'')}</div>
+          <div style="flex:1">
+            <div class="item-name">${esc(r.desc)}</div>
+            <div class="item-meta">Dia ${r.day}</div>
           </div>
-          <div class="item-amount expense">${formatBRL(e.amount)}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="item-amount expense">${formatBRL(r.amount)}</div>
+            <button onclick="window._crDelete('${card.id}','${r.id}')"
+              style="background:none;border:none;color:var(--color-expense);font-size:15px;
+                     cursor:pointer;padding:2px">🗑</button>
+          </div>
         </div>`).join('') : '<p class="text-muted" style="padding:8px 0">Nenhuma assinatura</p>'}
 
       <div class="divider"></div>
@@ -107,6 +112,7 @@ window._openCardExpense = id => openCardExpenseModal(window._cardMk, id);
 window._openRecurring   = id => openAddRecurringModal(id);
 window._openLoan        = id => openAddLoanModal(id);
 window._openCardConfig  = id => openCardConfigModal(id);
+// _crDelete está definido em card-modal.js (importado acima)
 window._toggleInvoice   = function(cardId) {
   const mk  = window._cardMk;
   const cur = getInvoiceStatus(cardId, mk);
