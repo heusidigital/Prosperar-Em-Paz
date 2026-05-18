@@ -1,6 +1,6 @@
 import { formatBRL, installmentQuitMonth } from '../utils.js';
-import { getCards, getCardExpenses, getInvoiceStatus, setInvoiceStatus } from '../storage.js';
-import { openCardExpenseModal, openAddRecurringModal, openAddLoanModal, openCardConfigModal } from '../modals/card-modal.js';
+import { getCards, getCardExpenses, removeCardExpense, getClosedInvoice, setClosedInvoice } from '../storage.js';
+import { openCardExpenseModal, openAddRecurringModal, openAddLoanModal, openCardConfigModal, openClosedInvoiceModal } from '../modals/card-modal.js';
 
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
@@ -8,6 +8,7 @@ export function renderCards(mk) {
   const el    = document.getElementById('page-cards');
   const cards = getCards();
   window._cardMk = mk;
+  window._renderCardsAfterModal = () => renderCards(mk);
 
   if (!cards.length) {
     el.innerHTML = `
@@ -24,17 +25,25 @@ export function renderCards(mk) {
 
 function buildCardSection(card, mk) {
   const expenses  = getCardExpenses(mk).filter(e => e.cardId === card.id);
-  const recurring = expenses.filter(e => e.isRecurring);
   const loans     = expenses.filter(e => e.isLoan);
   const avulsos   = expenses.filter(e => !e.isRecurring && !e.isLoan);
-  const fatura    = expenses.reduce((s,e) => s + e.amount, 0);
-  const available = card.limit ? card.limit - fatura : null;
-  const status    = getInvoiceStatus(card.id, mk);
   const cardLoans = (card.loans ?? []).filter(l => l.paidInstallments < l.totalInstallments);
+
+  // ── FATURA FECHADA (manual) ──────────────────────────────
+  const closed    = getClosedInvoice(card.id, mk);       // { amount, paid }
+
+  // ── FATURA CORRENTE (auto-calculated) ────────────────────
+  const totalSubs   = (card.recurring ?? []).reduce((s, r) => s + r.amount, 0);
+  const totalLoans  = cardLoans.reduce((s, l) => s + l.installmentAmount, 0);
+  const totalAvulso = avulsos.reduce((s, e) => s + e.amount, 0);
+  const corrente    = totalSubs + totalLoans + totalAvulso;
+
+  const available = card.limit ? card.limit - corrente : null;
 
   return `
     <div class="card-dark" style="margin-bottom:0;border-radius:var(--radius) var(--radius) 0 0">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <!-- Card title row -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
         <div>
           <div style="font-size:8px;letter-spacing:1px;color:#ffffff55">CARTÃO</div>
           <div style="font-size:16px;font-weight:700;color:#fff;margin-top:2px">${esc(card.name)}</div>
@@ -42,17 +51,59 @@ function buildCardSection(card, mk) {
         </div>
         <button class="btn btn-ghost btn-sm" onclick="window._openCardConfig('${card.id}')" style="color:#ffffff99;border-color:#ffffff33">Editar</button>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:14px">
-        <div>
-          <div style="font-size:9px;color:#ffffff55;letter-spacing:1px">FATURA DO MÊS</div>
-          <div style="font-size:22px;font-weight:700;color:var(--color-gold)">${formatBRL(fatura)}</div>
-          ${available !== null ? `<div style="font-size:9px;color:#ffffff55;margin-top:2px">Disponível: ${formatBRL(available)}</div>` : ''}
+
+      <!-- Dual invoice row -->
+      <div style="display:grid;grid-template-columns:1fr 1px 1fr;gap:0;align-items:start">
+
+        <!-- Left: FATURA FECHADA -->
+        <div style="padding-right:12px">
+          <div style="font-size:8px;letter-spacing:1px;color:#ffffff55;margin-bottom:4px">FATURA FECHADA</div>
+          <div style="font-size:20px;font-weight:700;color:${closed.paid ? 'var(--color-income)' : 'var(--color-gold)'}">
+            ${formatBRL(closed.amount)}
+          </div>
+          ${closed.paid
+            ? `<div style="font-size:9px;color:var(--color-income);margin-top:3px">✓ Paga</div>`
+            : closed.amount > 0
+              ? `<div style="font-size:9px;color:#ffffff55;margin-top:3px">Em aberto</div>`
+              : `<div style="font-size:9px;color:#ffffff33;margin-top:3px">Sem fatura fechada</div>`
+          }
+          <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+            <button onclick="window._openClosedInvoice('${card.id}')"
+              style="background:#ffffff15;border:1px solid #ffffff33;color:#fff;border-radius:6px;
+                     padding:4px 8px;font-size:10px;cursor:pointer">
+              ${closed.amount > 0 ? '✏️ Editar' : '+ Lançar'}
+            </button>
+            ${closed.amount > 0 && !closed.paid ? `
+            <button onclick="window._payClosedInvoice('${card.id}')"
+              style="background:var(--color-income-dim);border:1px solid var(--color-income);
+                     color:var(--color-income);border-radius:6px;padding:4px 8px;font-size:10px;cursor:pointer">
+              ✓ Pagar
+            </button>` : ''}
+            ${closed.paid ? `
+            <button onclick="window._reopenClosedInvoice('${card.id}')"
+              style="background:none;border:1px solid #ffffff33;color:#ffffff66;border-radius:6px;
+                     padding:4px 8px;font-size:10px;cursor:pointer">
+              Reabrir
+            </button>` : ''}
+          </div>
         </div>
-        <button class="btn btn-sm"
-          style="background:${status==='paga'?'var(--color-income-dim)':'var(--color-expense-dim)'};color:${status==='paga'?'var(--color-income)':'var(--color-expense)'};border:1px solid currentColor"
-          onclick="window._toggleInvoice('${card.id}')">
-          ${status === 'paga' ? '✓ Paga' : 'Marcar paga'}
-        </button>
+
+        <!-- Divider -->
+        <div style="background:#ffffff22;width:1px;align-self:stretch"></div>
+
+        <!-- Right: FATURA CORRENTE -->
+        <div style="padding-left:12px">
+          <div style="font-size:8px;letter-spacing:1px;color:#ffffff55;margin-bottom:4px">FATURA CORRENTE</div>
+          <div style="font-size:20px;font-weight:700;color:var(--color-expense)">${formatBRL(corrente)}</div>
+          ${available !== null
+            ? `<div style="font-size:9px;color:#ffffff55;margin-top:3px">Disponível: ${formatBRL(available)}</div>`
+            : `<div style="font-size:9px;color:#ffffff33;margin-top:3px">Auto-calculado</div>`}
+          <div style="margin-top:8px;font-size:9px;color:#ffffff55;line-height:1.7">
+            <div>Assinaturas: ${formatBRL(totalSubs)}</div>
+            ${totalLoans > 0 ? `<div>Empréstimos: ${formatBRL(totalLoans)}</div>` : ''}
+            ${totalAvulso > 0 ? `<div>Avulsos: ${formatBRL(totalAvulso)}</div>` : ''}
+          </div>
+        </div>
       </div>
     </div>
 
@@ -99,23 +150,44 @@ function buildCardSection(card, mk) {
       </div>
       ${avulsos.length ? avulsos.sort((a,b) => b.date.localeCompare(a.date)).map(e => `
         <div class="item-row">
-          <div>
+          <div style="flex:1">
             <div class="item-name">${esc(e.desc)}</div>
             <div class="item-meta">${e.date}</div>
           </div>
-          <div class="item-amount expense">${formatBRL(e.amount)}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="item-amount expense">${formatBRL(e.amount)}</div>
+            <button onclick="window._delCardExpense('${e.id}')"
+              style="background:none;border:none;color:var(--color-expense);font-size:15px;
+                     cursor:pointer;padding:2px">🗑</button>
+          </div>
         </div>`).join('') : '<p class="text-muted" style="padding:8px 0">Nenhum gasto avulso</p>'}
     </div>`;
 }
 
-window._openCardExpense = id => openCardExpenseModal(window._cardMk, id);
-window._openRecurring   = id => openAddRecurringModal(id);
-window._openLoan        = id => openAddLoanModal(id);
-window._openCardConfig  = id => openCardConfigModal(id);
+window._openCardExpense    = id => openCardExpenseModal(window._cardMk, id);
+window._openRecurring      = id => openAddRecurringModal(id);
+window._openLoan           = id => openAddLoanModal(id);
+window._openCardConfig     = id => openCardConfigModal(id);
+window._openClosedInvoice  = id => openClosedInvoiceModal(id);
 // _crDelete está definido em card-modal.js (importado acima)
-window._toggleInvoice   = function(cardId) {
-  const mk  = window._cardMk;
-  const cur = getInvoiceStatus(cardId, mk);
-  setInvoiceStatus(cardId, mk, cur === 'paga' ? 'aberta' : 'paga');
+
+window._payClosedInvoice = function(cardId) {
+  const mk = window._cardMk;
+  const cur = getClosedInvoice(cardId, mk);
+  setClosedInvoice(cardId, mk, { ...cur, paid: true });
+  renderCards(mk);
+};
+
+window._reopenClosedInvoice = function(cardId) {
+  const mk = window._cardMk;
+  const cur = getClosedInvoice(cardId, mk);
+  setClosedInvoice(cardId, mk, { ...cur, paid: false });
+  renderCards(mk);
+};
+
+window._delCardExpense = function(expId) {
+  if (!confirm('Remover este gasto avulso?')) return;
+  const mk = window._cardMk;
+  removeCardExpense(mk, expId);
   renderCards(mk);
 };

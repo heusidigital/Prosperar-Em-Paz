@@ -1,5 +1,5 @@
 import { uuid, getDateStr, installmentQuitMonth, getMonthKey } from '../utils.js';
-import { getCards, setCards, addCardExpense, getCardExpenses, setCardExpenses } from '../storage.js';
+import { getCards, setCards, addCardExpense, getCardExpenses, setCardExpenses, getClosedInvoice, setClosedInvoice } from '../storage.js';
 
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
@@ -67,6 +67,50 @@ export function openAddLoanModal(cardId) {
     <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="window._lnSave('${cardId}')">Salvar</button>
   `);
 }
+
+export function openClosedInvoiceModal(cardId) {
+  const mk     = window._cardMk;
+  const closed = getClosedInvoice(cardId, mk);
+  const card   = getCards().find(c => c.id === cardId);
+  const currentVal = closed.amount > 0 ? (closed.amount / 100).toFixed(2) : '';
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">Fatura Fechada — ${esc(card?.name ?? '')}</div>
+    <p style="font-size:12px;color:var(--color-text-muted);margin:0 0 14px">
+      Informe o valor da fatura que fechou. Este valor fica salvo até você zerá-lo ou marcá-lo como pago.
+    </p>
+    <div class="form-group">
+      <label class="form-label">VALOR DA FATURA (R$)</label>
+      <input class="form-input" id="ci-amount" type="number" step="0.01" min="0"
+             placeholder="0,00" value="${currentVal}" autofocus>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="window._ciSave('${cardId}')">Salvar</button>
+      ${closed.amount > 0 ? `
+      <button class="btn btn-ghost" style="color:var(--color-expense);border-color:var(--color-expense)"
+              onclick="window._ciClear('${cardId}')">Zerar</button>` : ''}
+    </div>
+  `);
+}
+
+window._ciSave = function(cardId) {
+  const mk     = window._cardMk;
+  const amount = Math.round(parseFloat(document.getElementById('ci-amount').value || '0') * 100);
+  if (isNaN(amount) || amount < 0) return alert('Informe um valor válido.');
+  const cur = getClosedInvoice(cardId, mk);
+  setClosedInvoice(cardId, mk, { ...cur, amount, paid: false });
+  closeModal();
+  // re-render cards page
+  if (typeof window._renderCardsAfterModal === 'function') window._renderCardsAfterModal();
+};
+
+window._ciClear = function(cardId) {
+  if (!confirm('Zerar a fatura fechada?')) return;
+  const mk = window._cardMk;
+  setClosedInvoice(cardId, mk, { amount: 0, paid: false });
+  closeModal();
+  if (typeof window._renderCardsAfterModal === 'function') window._renderCardsAfterModal();
+};
 
 export function openCardConfigModal(cardId) {
   const cards  = getCards();

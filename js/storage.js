@@ -58,6 +58,11 @@ export const setMonthInit = (mk) => set(`init_${mk}`, true);
 export const getInvoiceStatus = (cardId, mk)         => get(`invoice_${cardId}_${mk}`, 'aberta');
 export const setInvoiceStatus = (cardId, mk, status) => set(`invoice_${cardId}_${mk}`, status);
 
+// ── CLOSED INVOICE (FATURA FECHADA) ──────────────────────
+// amount in centavos, paid = true when user marks as paid
+export const getClosedInvoice = (cardId, mk)       => get(`closed_invoice_${cardId}_${mk}`, { amount: 0, paid: false });
+export const setClosedInvoice = (cardId, mk, data) => set(`closed_invoice_${cardId}_${mk}`, data);
+
 // ── AGGREGATION HELPERS ───────────────────────────────────
 export function sumTransactions(monthKeys) {
   let income = 0, expense = 0;

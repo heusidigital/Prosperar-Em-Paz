@@ -1,4 +1,4 @@
-const CACHE = 'eft-v8';
+const CACHE = 'eft-v9';
 const ASSETS = [
   '/Prosperar-Em-Paz/',
   '/Prosperar-Em-Paz/index.html',
