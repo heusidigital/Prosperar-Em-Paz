@@ -1,5 +1,5 @@
 import { formatBRL, installmentQuitMonth } from '../utils.js';
-import { getCards, getCardExpenses, removeCardExpense, getClosedInvoice, setClosedInvoice } from '../storage.js';
+import { getCards, getCardExpenses, setCardExpenses, removeCardExpense, getClosedInvoice, setClosedInvoice } from '../storage.js';
 import { openCardExpenseModal, openAddRecurringModal, openAddLoanModal, openCardConfigModal, openClosedInvoiceModal } from '../modals/card-modal.js';
 
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -146,7 +146,11 @@ function buildCardSection(card, mk) {
 
       <div class="section-label">
         GASTOS AVULSOS
-        <button class="btn btn-primary btn-sm" onclick="window._openCardExpense('${card.id}')">+ Gasto</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-primary btn-sm" onclick="window._openCardExpense('${card.id}')">+ Gasto</button>
+          ${avulsos.length > 1 ? `<button class="btn btn-ghost btn-sm" style="color:var(--color-expense);border-color:var(--color-expense)"
+            onclick="window._clearAvulsos('${card.id}')">🗑 Limpar todos</button>` : ''}
+        </div>
       </div>
       ${avulsos.length ? avulsos.sort((a,b) => b.date.localeCompare(a.date)).map(e => `
         <div class="item-row">
@@ -189,5 +193,14 @@ window._delCardExpense = function(expId) {
   if (!confirm('Remover este gasto avulso?')) return;
   const mk = window._cardMk;
   removeCardExpense(mk, expId);
+  renderCards(mk);
+};
+
+window._clearAvulsos = function(cardId) {
+  if (!confirm('Remover TODOS os gastos avulsos deste cartão no mês atual?\n\nUse isso para zerar os lançamentos antigos antes de começar pelo novo sistema.')) return;
+  const mk = window._cardMk;
+  // mantém assinaturas e empréstimos, remove apenas avulsos deste cartão
+  const remaining = getCardExpenses(mk).filter(e => e.cardId !== cardId || e.isRecurring || e.isLoan);
+  setCardExpenses(mk, remaining);
   renderCards(mk);
 };
