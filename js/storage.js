@@ -63,8 +63,8 @@ export function sumTransactions(monthKeys) {
   let income = 0, expense = 0;
   for (const mk of monthKeys) {
     for (const tx of getTransactions(mk)) {
-      // Unconfirmed income = not yet received; unconfirmed expenses = committed, count them
-      if (!tx.confirmed && tx.type === 'income') continue;
+      if (!tx.confirmed && tx.type === 'income') continue; // receita não confirmada: não conta
+      if (tx.pending && tx.type === 'expense') continue;   // despesa pendente: não entra no balancete
       if (tx.type === 'income') income += tx.amount;
       else expense += tx.amount;
     }

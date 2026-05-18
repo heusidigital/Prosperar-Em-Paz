@@ -1,6 +1,6 @@
 import { formatBRL } from '../utils.js';
 import { uuid, getDateStr } from '../utils.js';
-import { getTransactions, getSources, addTransaction, removeTransaction, removeSource } from '../storage.js';
+import { getTransactions, getSources, addTransaction, updateTransaction, removeTransaction, removeSource } from '../storage.js';
 import { openExpenseModal } from '../modals/expense-modal.js';
 import { openIncomeModal, openSourceModal, openManageSources, confirmIncome } from '../modals/income-modal.js';
 
@@ -31,26 +31,63 @@ function buildTransactions(mk) {
 }
 
 function buildExpenses(mk) {
-  const txs = getTransactions(mk).filter(t => t.type === 'expense').sort((a,b) => b.date.localeCompare(a.date));
-  const total = txs.reduce((s,t) => s+t.amount, 0);
-  return `
-    <div class="card" style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+  const all      = getTransactions(mk).filter(t => t.type === 'expense').sort((a,b) => b.date.localeCompare(a.date));
+  const pagas    = all.filter(t => !t.pending);
+  const pend     = all.filter(t => t.pending);
+  const totalPago    = pagas.reduce((s,t) => s + t.amount, 0);
+  const totalPendente = pend.reduce((s,t) => s + t.amount, 0);
+
+  const rowPaga = tx => `
+    <div class="item-row" onclick="window._editExpense('${tx.id}')">
       <div>
-        <div class="section-label" style="margin:0">TOTAL DO MÊS</div>
-        <div style="font-size:20px;font-weight:700;color:var(--color-expense)">${formatBRL(total)}</div>
+        <div class="item-name">${esc(tx.desc)}</div>
+        <div class="item-meta">${CATEGORY_LABELS[tx.category] ?? tx.category} · ${tx.date}</div>
       </div>
-      <button class="btn btn-primary btn-sm" onclick="window._openExpense()">+ Despesa</button>
-    </div>
-    <div class="card">
-      ${txs.length ? txs.map(tx => `
-        <div class="item-row" onclick="window._editExpense('${tx.id}')">
-          <div>
-            <div class="item-name">${esc(tx.desc)}</div>
-            <div class="item-meta">${CATEGORY_LABELS[tx.category] ?? tx.category} · ${tx.date}</div>
-          </div>
-          <div class="item-amount expense">${formatBRL(tx.amount)}</div>
-        </div>`).join('') : '<div class="empty-state">Nenhuma despesa este mês</div>'}
+      <div class="item-amount expense">${formatBRL(tx.amount)}</div>
     </div>`;
+
+  const rowPend = tx => `
+    <div class="item-row" style="opacity:0.75">
+      <div style="flex:1">
+        <div class="item-name">${esc(tx.desc)}
+          <span style="font-size:9px;background:#c9a84c22;color:var(--color-gold);
+                       border-radius:4px;padding:1px 5px;margin-left:4px">PENDENTE</span>
+        </div>
+        <div class="item-meta">${CATEGORY_LABELS[tx.category] ?? tx.category} · ${tx.date}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="item-amount" style="color:var(--color-gold)">${formatBRL(tx.amount)}</div>
+        <button onclick="window._markPaid('${tx.id}')"
+          style="background:none;border:1px solid var(--color-income);color:var(--color-income);
+                 border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;white-space:nowrap">✓ Pagar</button>
+        <button onclick="window._delPending('${tx.id}')"
+          style="background:none;border:none;color:var(--color-expense);font-size:15px;cursor:pointer;padding:2px">🗑</button>
+      </div>
+    </div>`;
+
+  return `
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <div class="card" style="flex:1">
+        <div class="section-label" style="margin:0 0 2px">TOTAL PAGO</div>
+        <div style="font-size:18px;font-weight:700;color:var(--color-expense)">${formatBRL(totalPago)}</div>
+      </div>
+      <div class="card" style="flex:1">
+        <div class="section-label" style="margin:0 0 2px">PENDENTES</div>
+        <div style="font-size:18px;font-weight:700;color:var(--color-gold)">${formatBRL(totalPendente)}</div>
+      </div>
+      <button class="btn btn-primary btn-sm" style="align-self:center" onclick="window._openExpense()">+ Despesa</button>
+    </div>
+
+    <div class="section-label">DESPESAS PAGAS</div>
+    <div class="card" style="margin-bottom:10px">
+      ${pagas.length ? pagas.map(rowPaga).join('') : '<div class="empty-state">Nenhuma despesa paga</div>'}
+    </div>
+
+    ${pend.length ? `
+    <div class="section-label">DESPESAS PENDENTES</div>
+    <div class="card">
+      ${pend.map(rowPend).join('')}
+    </div>` : ''}`;
 }
 
 // ── AUTO-REPARO: garante que toda fonte fixa/recorrente tem transação no mês ──
@@ -217,5 +254,17 @@ window._delIncomeTx = id => {
 window._delSource   = id => {
   if (!confirm('Remover esta fonte recorrente? Os lançamentos já feitos não serão apagados.')) return;
   removeSource(id);
+  renderTransactions(window._txMk);
+};
+window._markPaid    = id => {
+  // Marca despesa pendente como paga (entra no balancete)
+  const mk = window._txMk;
+  const txs = getTransactions(mk);
+  const tx  = txs.find(t => t.id === id);
+  if (tx) { updateTransaction(mk, { ...tx, pending: false }); renderTransactions(mk); }
+};
+window._delPending  = id => {
+  if (!confirm('Excluir esta despesa pendente?')) return;
+  removeTransaction(window._txMk, id);
   renderTransactions(window._txMk);
 };
