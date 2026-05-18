@@ -1,6 +1,6 @@
 import { formatBRL } from '../utils.js';
 import { uuid, getDateStr } from '../utils.js';
-import { getTransactions, getSources, addTransaction, removeTransaction } from '../storage.js';
+import { getTransactions, getSources, addTransaction, removeTransaction, removeSource } from '../storage.js';
 import { openExpenseModal } from '../modals/expense-modal.js';
 import { openIncomeModal, openSourceModal, openManageSources, confirmIncome } from '../modals/income-modal.js';
 
@@ -152,10 +152,12 @@ function buildReceitas(mk) {
       ${recorr.map(s => {
         const tx = txs.find(t => t.sourceId === s.id);
         const confirmed = tx?.confirmed;
-        return `<div class="item-row">
-          <div>
+        const dayInfo = s.day ? `· esperado dia ${s.day}` : '';
+        return `<div class="item-row" style="align-items:flex-start">
+          <div style="flex:1">
             <div class="item-name">${esc(s.name)} <span class="badge badge-recorrente">RECORRENTE</span></div>
-            <div class="item-meta status-row">
+            <div class="item-meta" style="margin-top:2px;color:var(--color-text-muted)">${dayInfo}</div>
+            <div class="item-meta status-row" style="margin-top:4px">
               ${confirmed
                 ? `<span class="dot dot-ok"></span>Recebido ✓`
                 : tx
@@ -164,7 +166,12 @@ function buildReceitas(mk) {
                   : `<span class="dot dot-pend"></span>Aguardando`}
             </div>
           </div>
-          <div class="item-amount income">${formatBRL(s.amount)}</div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+            <div class="item-amount income">${formatBRL(s.amount)}</div>
+            <button onclick="window._delSource('${s.id}')"
+              style="background:none;border:none;color:var(--color-expense);font-size:14px;
+                     cursor:pointer;padding:2px 4px;line-height:1">🗑</button>
+          </div>
         </div>`;
       }).join('') || '<div class="empty-state" style="padding:12px 0">Nenhuma fonte recorrente</div>'}
     </div>
@@ -202,8 +209,13 @@ window._openIncomeModal   = ()   => openIncomeModal(window._txMk);
 window._openSourceModal   = type => openSourceModal(type);
 window._openManageSources = ()   => openManageSources();
 window._confirmIncome     = txId => { confirmIncome(window._txMk, txId); renderTransactions(window._txMk); };
-window._delIncomeTx       = id   => {
+window._delIncomeTx = id => {
   if (!confirm('Remover este lançamento?')) return;
   removeTransaction(window._txMk, id);
+  renderTransactions(window._txMk);
+};
+window._delSource   = id => {
+  if (!confirm('Remover esta fonte recorrente? Os lançamentos já feitos não serão apagados.')) return;
+  removeSource(id);
   renderTransactions(window._txMk);
 };
