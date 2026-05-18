@@ -24,23 +24,27 @@ export function openCardExpenseModal(mk, cardId) {
   `);
 }
 
-export function openAddRecurringModal(cardId) {
+export function openAddRecurringModal(cardId, existingRec) {
+  const isEdit = !!existingRec;
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">Nova Assinatura</div>
+    <div class="modal-title">${isEdit ? 'Editar Assinatura' : 'Nova Assinatura'}</div>
     <div class="form-group">
       <label class="form-label">DESCRIÇÃO</label>
-      <input class="form-input" id="cr-desc" placeholder="Ex: Netflix">
+      <input class="form-input" id="cr-desc" placeholder="Ex: Netflix" value="${isEdit ? esc(existingRec.desc) : ''}">
     </div>
     <div class="form-group">
       <label class="form-label">VALOR (R$)</label>
-      <input class="form-input" id="cr-amount" type="number" step="0.01" min="0" placeholder="0,00">
+      <input class="form-input" id="cr-amount" type="number" step="0.01" min="0" placeholder="0,00"
+             value="${isEdit ? (existingRec.amount / 100).toFixed(2) : ''}">
     </div>
     <div class="form-group">
       <label class="form-label">DIA DO MÊS</label>
-      <input class="form-input" id="cr-day" type="number" min="1" max="31" placeholder="Ex: 18">
+      <input class="form-input" id="cr-day" type="number" min="1" max="31" placeholder="Ex: 18"
+             value="${isEdit ? existingRec.day : ''}">
     </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="window._crSave('${cardId}')">Salvar</button>
+    <button class="btn btn-primary" style="width:100%;margin-top:8px"
+            onclick="window._crSave('${cardId}','${isEdit ? existingRec.id : ''}')">Salvar</button>
   `);
 }
 
@@ -150,7 +154,7 @@ window._ceSave = function(mk, cardId) {
   closeModal();
 };
 
-window._crSave = function(cardId) {
+window._crSave = function(cardId, existingId) {
   const desc   = document.getElementById('cr-desc').value.trim();
   const amount = Math.round(parseFloat(document.getElementById('cr-amount').value) * 100);
   const day    = parseInt(document.getElementById('cr-day').value);
@@ -158,18 +162,39 @@ window._crSave = function(cardId) {
   const cards = getCards();
   const card  = cards.find(c => c.id === cardId);
   if (!card) return;
-  const newRec = { id: uuid(), desc, amount, day };
-  card.recurring.push(newRec);
-  setCards(cards);
 
-  // Adiciona imediatamente nos gastos do mês atual (sem esperar o próximo mês)
-  const mk = window._cardMk;
-  if (mk) {
-    const [y, m] = mk.split('-').map(Number);
-    const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    addCardExpense(mk, { id: uuid(), cardId, date: dateStr, desc, amount, isRecurring: true, recurringId: newRec.id });
+  if (existingId) {
+    // Editar assinatura existente
+    const rec = card.recurring.find(r => r.id === existingId);
+    if (rec) Object.assign(rec, { desc, amount, day });
+    setCards(cards);
+    // Atualiza o lançamento deste mês se existir
+    const mk = window._cardMk;
+    if (mk) {
+      const expenses = getCardExpenses(mk);
+      const exp = expenses.find(e => e.recurringId === existingId);
+      if (exp) {
+        const [y, m] = mk.split('-').map(Number);
+        const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        Object.assign(exp, { desc, amount, day, date: dateStr });
+        setCardExpenses(mk, expenses);
+      }
+    }
+  } else {
+    // Nova assinatura
+    const newRec = { id: uuid(), desc, amount, day };
+    card.recurring.push(newRec);
+    setCards(cards);
+    // Adiciona imediatamente nos gastos do mês atual
+    const mk = window._cardMk;
+    if (mk) {
+      const [y, m] = mk.split('-').map(Number);
+      const dateStr = `${y}-${String(m).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      addCardExpense(mk, { id: uuid(), cardId, date: dateStr, desc, amount, isRecurring: true, recurringId: newRec.id });
+    }
   }
   closeModal();
+  if (typeof window._renderCardsAfterModal === 'function') window._renderCardsAfterModal();
 };
 
 window._crDelete = function(cardId, recurringId) {

@@ -146,8 +146,11 @@ function buildCardSection(card, mk) {
             <div class="item-name">${esc(r.desc)}</div>
             <div class="item-meta">Dia ${r.day}</div>
           </div>
-          <div style="display:flex;align-items:center;gap:8px">
+          <div style="display:flex;align-items:center;gap:6px">
             <div class="item-amount expense">${formatBRL(r.amount)}</div>
+            <button onclick="window._crEdit('${card.id}','${r.id}')"
+              style="background:none;border:none;color:var(--color-text-muted);font-size:15px;
+                     cursor:pointer;padding:2px 4px" title="Editar">✏️</button>
             <button onclick="window._crDelete('${card.id}','${r.id}')"
               style="background:none;border:none;color:var(--color-expense);font-size:15px;
                      cursor:pointer;padding:2px">🗑</button>
@@ -193,6 +196,11 @@ function buildCardSection(card, mk) {
 
 window._openCardExpense    = id => openCardExpenseModal(window._cardMk, id);
 window._openRecurring      = id => openAddRecurringModal(id);
+window._crEdit = function(cardId, recurringId) {
+  const card = getCards().find(c => c.id === cardId);
+  const rec  = card?.recurring?.find(r => r.id === recurringId);
+  if (rec) openAddRecurringModal(cardId, rec);
+};
 window._openLoan           = id => openAddLoanModal(id);
 window._openCardConfig     = id => openCardConfigModal(id);
 window._openClosedInvoice  = id => openClosedInvoiceModal(id);
