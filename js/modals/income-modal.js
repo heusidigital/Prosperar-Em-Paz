@@ -1,5 +1,7 @@
-import { uuid, getDateStr } from '../utils.js';
-import { addTransaction, updateTransaction, getTransactions, addSource } from '../storage.js';
+import { uuid, getDateStr, formatBRL } from '../utils.js';
+import { addTransaction, updateTransaction, getTransactions, addSource, getSources, removeSource } from '../storage.js';
+
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
 export function openIncomeModal(mk) {
   openModal(`
@@ -45,6 +47,53 @@ export function openSourceModal(type) {
     <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="window._srcSave('${type}')">Salvar Fonte</button>
   `);
 }
+
+export function openManageSources() {
+  const sources = getSources();
+  const typeLabel = { fixa: 'FIXA', recorrente: 'RECORRENTE', variavel: 'VARIÁVEL' };
+  const typeBadge = { fixa: 'badge-fixa', recorrente: 'badge-recorrente', variavel: 'badge-var' };
+
+  const rows = sources.length ? sources.map(s => `
+    <div class="item-row" style="padding:10px 0;border-bottom:1px solid var(--color-border)">
+      <div style="flex:1">
+        <div class="item-name" style="margin-bottom:3px">
+          ${esc(s.name)}
+          <span class="badge ${typeBadge[s.type] ?? ''}" style="margin-left:6px">${typeLabel[s.type] ?? s.type}</span>
+        </div>
+        <div class="item-meta">
+          ${s.amount ? formatBRL(s.amount) + '/mês' : 'Valor variável'}
+          ${s.day ? ' · dia ' + s.day : ''}
+        </div>
+      </div>
+      <button
+        onclick="window._srcDelete('${s.id}')"
+        style="background:none;border:1px solid #b07a2a44;color:var(--color-expense);
+               border-radius:8px;padding:6px 12px;font-size:11px;cursor:pointer;white-space:nowrap">
+        🗑 Remover
+      </button>
+    </div>`).join('') : '<div class="empty-state">Nenhuma fonte cadastrada</div>';
+
+  openModal(`
+    <div class="modal-handle"></div>
+    <div class="modal-title">Gerenciar Fontes de Receita</div>
+    <div style="margin-top:4px">${rows}</div>
+    <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-ghost" style="width:100%" onclick="window._srcNew('fixa')">+ Nova Receita Fixa</button>
+      <button class="btn btn-ghost" style="width:100%" onclick="window._srcNew('recorrente')">+ Nova Recorrente</button>
+      <button class="btn btn-ghost" style="width:100%" onclick="window._srcNew('variavel')">+ Nova Variável</button>
+    </div>
+  `);
+}
+
+window._srcDelete = function(id) {
+  if (!confirm('Remover esta fonte? Os lançamentos já feitos não serão apagados.')) return;
+  removeSource(id);
+  openManageSources();
+};
+
+window._srcNew = function(type) {
+  openSourceModal(type);
+};
 
 export function confirmIncome(mk, txId) {
   const tx = getTransactions(mk).find(t => t.id === txId);

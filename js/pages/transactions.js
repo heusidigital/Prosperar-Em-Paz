@@ -1,7 +1,7 @@
 import { formatBRL } from '../utils.js';
 import { getTransactions, getSources } from '../storage.js';
 import { openExpenseModal } from '../modals/expense-modal.js';
-import { openIncomeModal, openSourceModal, confirmIncome } from '../modals/income-modal.js';
+import { openIncomeModal, openSourceModal, openManageSources, confirmIncome } from '../modals/income-modal.js';
 
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
@@ -57,9 +57,19 @@ function buildReceitas(mk) {
   const fixed   = sources.filter(s => s.type === 'fixa');
   const recorr  = sources.filter(s => s.type === 'recorrente');
 
-  const fixedTotal = txs.filter(t => fixed.find(s => s.id === t.sourceId)).reduce((a,t) => a+t.amount, 0);
-  const recebido   = txs.filter(t => t.confirmed && !fixed.find(s => s.id === t.sourceId)).reduce((a,t) => a+t.amount, 0) + fixedTotal;
-  const aReceber   = txs.filter(t => !t.confirmed).reduce((a,t) => a+t.amount, 0);
+  // FIXO: soma dos valores das fontes fixas (garantido, independente de transação existir)
+  const fixedTotal = fixed.reduce((a, s) => a + (s.amount ?? 0), 0);
+  // RECEBIDO: fixo + receitas variáveis confirmadas (lançamentos manuais)
+  const recebido   = fixedTotal +
+    txs.filter(t => t.confirmed && !sources.find(s => s.id === t.sourceId))
+       .reduce((a, t) => a + t.amount, 0) +
+    txs.filter(t => t.confirmed && recorr.find(s => s.id === t.sourceId))
+       .reduce((a, t) => a + t.amount, 0);
+  // A RECEBER: soma dos valores das fontes recorrentes que ainda NÃO foram confirmadas este mês
+  const aReceber = recorr.reduce((a, s) => {
+    const tx = txs.find(t => t.sourceId === s.id);
+    return a + (tx?.confirmed ? 0 : (s.amount ?? 0));
+  }, 0);
 
   return `
     <div class="three-col">
@@ -83,7 +93,7 @@ function buildReceitas(mk) {
 
     <div class="section-label" style="margin-top:8px">
       RECORRENTES
-      <button class="btn btn-ghost btn-sm" onclick="window._openSourceModal('recorrente')">+ Fonte</button>
+      <button class="btn btn-ghost btn-sm" onclick="window._openManageSources()">⚙ Gerenciar</button>
     </div>
     <div class="card">
       ${recorr.map(s => {
@@ -120,13 +130,14 @@ function buildReceitas(mk) {
     </div>
 
     <div style="margin-top:10px">
-      <button class="btn btn-ghost" style="width:100%" onclick="window._openSourceModal('fixa')">+ Cadastrar nova fonte de receita</button>
+      <button class="btn btn-ghost" style="width:100%" onclick="window._openManageSources()">⚙ Gerenciar fontes de receita</button>
     </div>`;
 }
 
-window._txTab         = t  => { activeTab = t; renderTransactions(window._txMk); };
-window._openExpense   = () => openExpenseModal(window._txMk);
-window._editExpense   = id => { const tx = getTransactions(window._txMk).find(t => t.id === id); if (tx) openExpenseModal(window._txMk, tx); };
-window._openIncomeModal  = () => openIncomeModal(window._txMk);
+window._txTab            = t    => { activeTab = t; renderTransactions(window._txMk); };
+window._openExpense      = ()   => openExpenseModal(window._txMk);
+window._editExpense      = id   => { const tx = getTransactions(window._txMk).find(t => t.id === id); if (tx) openExpenseModal(window._txMk, tx); };
+window._openIncomeModal  = ()   => openIncomeModal(window._txMk);
 window._openSourceModal  = type => openSourceModal(type);
-window._confirmIncome = txId => { confirmIncome(window._txMk, txId); renderTransactions(window._txMk); };
+window._openManageSources = ()  => openManageSources();
+window._confirmIncome    = txId => { confirmIncome(window._txMk, txId); renderTransactions(window._txMk); };
