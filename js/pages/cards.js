@@ -33,16 +33,20 @@ function buildCardSection(card, mk) {
   const closed    = getClosedInvoice(card.id, mk);       // { amount, paid }
 
   // ── FATURA CORRENTE (auto-calculated) ────────────────────
-  // Só assinaturas cujo dia de vencimento é APÓS o fechamento do cartão
-  // (as anteriores já estão embutidas na fatura fechada que o banco enviou)
+  // Apenas assinaturas já vencidas no ciclo atual: day > closeDay e day <= hoje
+  // Conforme os dias passam, novas assinaturas entram automaticamente
   const closeDay    = card.closeDay ?? 1;
-  const subsCorrente = (card.recurring ?? []).filter(r => r.day > closeDay);
-  const totalSubs   = subsCorrente.reduce((s, r) => s + r.amount, 0);
-  // Empréstimos NÃO entram na fatura corrente — são dívidas separadas (boleto/débito)
+  const todayDay    = new Date().getDate();
+
+  // Assinaturas já cobradas neste ciclo (vencidas entre dia após fechamento e hoje)
+  const subsJaVencidas  = (card.recurring ?? []).filter(r => r.day > closeDay && r.day <= todayDay);
+  // Assinaturas ainda a vencer neste ciclo (após hoje)
+  const subsAVencer     = (card.recurring ?? []).filter(r => r.day > closeDay && r.day > todayDay);
+
+  const totalSubs   = subsJaVencidas.reduce((s, r) => s + r.amount, 0);
+  // Empréstimos NÃO entram — dívidas separadas (boleto/débito)
   const totalAvulso = avulsos.reduce((s, e) => s + e.amount, 0);
   const corrente    = totalSubs + totalAvulso;
-
-  const available = card.limit ? card.limit - corrente : null;
 
   return `
     <div class="card-dark" style="margin-bottom:0;border-radius:var(--radius) var(--radius) 0 0">
@@ -63,17 +67,33 @@ function buildCardSection(card, mk) {
         <div style="padding-right:12px">
           <div style="font-size:8px;letter-spacing:1px;color:#ffffff55;margin-bottom:4px">FATURA CORRENTE</div>
           <div style="font-size:20px;font-weight:700;color:var(--color-expense)">${formatBRL(corrente)}</div>
-          ${available !== null
-            ? `<div style="font-size:11px;color:#ffffff77;margin-top:3px">Disponível: ${formatBRL(available)}</div>`
-            : ''}
-          <div style="margin-top:10px;font-size:11px;color:#ffffff88;line-height:2">
-            ${subsCorrente.length > 0
-              ? `<div>📱 Assinaturas: <b>${formatBRL(totalSubs)}</b></div>`
-              : `<div style="color:#ffffff44">Sem assinaturas neste ciclo</div>`}
+
+          <div style="margin-top:10px;font-size:11px;color:#ffffff88;line-height:1.9">
+            ${subsJaVencidas.length > 0
+              ? subsJaVencidas.map(r => `<div>📱 ${esc(r.desc)} <b>${formatBRL(r.amount)}</b></div>`).join('')
+              : `<div style="color:#ffffff44;font-size:10px">Nenhuma assinatura vencida ainda</div>`}
+            ${subsAVencer.length > 0
+              ? `<div style="color:#ffffff44;font-size:10px;margin-top:4px">
+                   Em breve: ${subsAVencer.map(r => `dia ${r.day}`).join(', ')}
+                 </div>`
+              : ''}
             ${totalAvulso > 0
               ? `<div>🧾 Avulsos: <b>${formatBRL(totalAvulso)}</b></div>`
-              : `<div style="color:#ffffff44">+ Gasto para adicionar</div>`}
+              : ''}
           </div>
+
+          <button onclick="window._openCardExpense('${card.id}')"
+            style="margin-top:10px;background:var(--color-expense-dim);border:1px solid var(--color-expense);
+                   color:var(--color-expense);border-radius:6px;padding:5px 12px;
+                   font-size:11px;cursor:pointer;width:100%">
+            + Adicionar gasto
+          </button>
+          ${avulsos.length > 0 ? `
+          <button onclick="window._clearAvulsos('${card.id}')"
+            style="margin-top:6px;background:none;border:1px solid #ffffff22;color:#ffffff44;
+                   border-radius:6px;padding:4px 12px;font-size:10px;cursor:pointer;width:100%">
+            🗑 Limpar avulsos antigos
+          </button>` : ''}
         </div>
 
         <!-- Divider -->
@@ -153,11 +173,7 @@ function buildCardSection(card, mk) {
 
       <div class="section-label">
         GASTOS AVULSOS
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-primary btn-sm" onclick="window._openCardExpense('${card.id}')">+ Gasto</button>
-          ${avulsos.length > 1 ? `<button class="btn btn-ghost btn-sm" style="color:var(--color-expense);border-color:var(--color-expense)"
-            onclick="window._clearAvulsos('${card.id}')">🗑 Limpar todos</button>` : ''}
-        </div>
+        <button class="btn btn-primary btn-sm" onclick="window._openCardExpense('${card.id}')">+ Gasto</button>
       </div>
       ${avulsos.length ? avulsos.sort((a,b) => b.date.localeCompare(a.date)).map(e => `
         <div class="item-row">
