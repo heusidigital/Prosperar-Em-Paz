@@ -7,8 +7,9 @@ import { renderCards } from './pages/cards.js';
 import { renderGoals } from './pages/goals.js';
 
 let currentPage = 'dashboard';
-const MONTH_KEY = getMonthKey();
-window._currentMk = MONTH_KEY;
+let activeMk = getMonthKey();          // mês exibido (pode ser passado/futuro)
+const TODAY_MK = getMonthKey();        // mês real de hoje (fixo)
+window._currentMk = activeMk;
 
 // ── ROUTER ───────────────────────────────────────────────
 window.navigate = function(page) {
@@ -22,7 +23,8 @@ window.navigate = function(page) {
 
 function renderPage(page) {
   const pages = { dashboard: renderDashboard, transactions: renderTransactions, cards: renderCards, goals: renderGoals };
-  pages[page]?.(MONTH_KEY);
+  pages[page]?.(activeMk);
+  updateHeaderMonth();
 }
 
 // ── MODAL ─────────────────────────────────────────────────
@@ -84,14 +86,42 @@ function initMonth(mk) {
   setMonthInit(mk);
 }
 
-// ── HEADER ────────────────────────────────────────────────
-function setHeaderMonth() {
-  document.getElementById('header-month').textContent = formatMonthFull(MONTH_KEY);
+// ── NAVEGAÇÃO DE MÊS ─────────────────────────────────────
+function shiftMonth(delta) {
+  const [y, m] = activeMk.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  activeMk = getMonthKey(d);
+  window._currentMk = activeMk;
+  initMonth(activeMk);   // safe: só executa se o mês ainda não foi inicializado
+  renderPage(currentPage);
+}
+
+window._prevMonth = () => shiftMonth(-1);
+window._nextMonth = () => shiftMonth(+1);
+
+function updateHeaderMonth() {
+  const isPast   = activeMk < TODAY_MK;
+  const isFuture = activeMk > TODAY_MK;
+  const label    = formatMonthFull(activeMk);
+  const badge    = isPast
+    ? `<span style="font-size:9px;background:#c9a84c33;color:var(--color-gold);border-radius:4px;padding:1px 6px;margin-left:6px">MÊS ANTERIOR</span>`
+    : isFuture
+    ? `<span style="font-size:9px;background:#00e5ff22;color:#00e5ff;border-radius:4px;padding:1px 6px;margin-left:6px">MÊS FUTURO</span>`
+    : '';
+
+  document.getElementById('header-month').innerHTML = `
+    <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end">
+      <button onclick="window._prevMonth()"
+        style="background:none;border:none;color:#ffffff99;font-size:16px;cursor:pointer;padding:0 4px;line-height:1">‹</button>
+      <span>${label}${badge}</span>
+      <button onclick="window._nextMonth()"
+        style="background:none;border:none;color:#ffffff99;font-size:16px;cursor:pointer;padding:0 4px;line-height:1;
+               visibility:${activeMk >= TODAY_MK ? 'hidden' : 'visible'}">›</button>
+    </div>`;
 }
 
 // ── BOOT ─────────────────────────────────────────────────
-initMonth(MONTH_KEY);
-setHeaderMonth();
+initMonth(activeMk);
 renderPage('dashboard');
 
 if ('serviceWorker' in navigator) {
