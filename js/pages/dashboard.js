@@ -126,9 +126,11 @@ function buildChart(months, currentMk) {
 function buildCardChip(card, mk) {
   const expenses    = getCardExpenses(mk).filter(e => e.cardId === card.id);
   const avulsos     = expenses.filter(e => !e.isRecurring && !e.isLoan);
-  const closeDay    = card.closeDay ?? 1;
-  const todayDay    = new Date().getDate();
-  const totalSubs   = (card.recurring ?? []).filter(r => r.day > closeDay && r.day <= todayDay).reduce((s, r) => s + r.amount, 0);
+  const closeDay = card.closeDay ?? 1;
+  const todayDay = new Date().getDate();
+  const totalSubs = todayDay < closeDay
+    ? (card.recurring ?? []).filter(r => r.day > closeDay).reduce((s, r) => s + r.amount, 0)
+    : (card.recurring ?? []).filter(r => r.day > closeDay && r.day <= todayDay).reduce((s, r) => s + r.amount, 0);
   const totalAvulso = avulsos.reduce((s, e) => s + e.amount, 0);
   const corrente    = totalSubs + totalAvulso;
   const closed      = getClosedInvoice(card.id, mk);

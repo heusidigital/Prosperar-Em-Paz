@@ -33,15 +33,25 @@ function buildCardSection(card, mk) {
   const closed    = getClosedInvoice(card.id, mk);       // { amount, paid }
 
   // ── FATURA CORRENTE (auto-calculated) ────────────────────
-  // Apenas assinaturas já vencidas no ciclo atual: day > closeDay e day <= hoje
-  // Conforme os dias passam, novas assinaturas entram automaticamente
-  const closeDay    = card.closeDay ?? 1;
-  const todayDay    = new Date().getDate();
+  // Assinaturas com day > closeDay pertencem ao ciclo corrente (ex: Nubank fecha dia 15 → day 16-31)
+  // Regra de virada de mês:
+  //   Se hoje < closeDay → estamos ANTES do fechamento deste mês.
+  //     As assinaturas day > closeDay rodaram NO MÊS PASSADO — todas já cobradas.
+  //   Se hoje >= closeDay → estamos APÓS o fechamento, novo ciclo aberto.
+  //     Apenas as que já passaram este mês (day > closeDay AND day <= hoje).
+  const closeDay = card.closeDay ?? 1;
+  const todayDay = new Date().getDate();
 
-  // Assinaturas já cobradas neste ciclo (vencidas entre dia após fechamento e hoje)
-  const subsJaVencidas  = (card.recurring ?? []).filter(r => r.day > closeDay && r.day <= todayDay);
-  // Assinaturas ainda a vencer neste ciclo (após hoje)
-  const subsAVencer     = (card.recurring ?? []).filter(r => r.day > closeDay && r.day > todayDay);
+  let subsJaVencidas, subsAVencer;
+  if (todayDay < closeDay) {
+    // Antes do fechamento: day > closeDay rodaram no mês passado → todas cobradas
+    subsJaVencidas = (card.recurring ?? []).filter(r => r.day > closeDay);
+    subsAVencer    = [];   // nada a vencer até o fechamento deste mês neste lado
+  } else {
+    // Após o fechamento: novo ciclo, conta só as que já passaram este mês
+    subsJaVencidas = (card.recurring ?? []).filter(r => r.day > closeDay && r.day <= todayDay);
+    subsAVencer    = (card.recurring ?? []).filter(r => r.day > closeDay && r.day > todayDay);
+  }
 
   const totalSubs   = subsJaVencidas.reduce((s, r) => s + r.amount, 0);
   // Empréstimos NÃO entram — dívidas separadas (boleto/débito)
