@@ -42,15 +42,23 @@ function buildCardSection(card, mk) {
   const closeDay = card.closeDay ?? 1;
   const todayDay = new Date().getDate();
 
+  // Todas as assinaturas aparecem em toda fatura — nunca em duplicidade.
+  // Ciclo de faturamento (ex: fecha dia 14):
+  //   Antes do fechamento (hoje < 14):
+  //     Período = dia 15 mês passado → dia 14 deste mês
+  //     Já cobradas: day > closeDay (rodaram mês passado) OU day <= hoje (já rodaram este mês)
+  //     Em breve:    day > hoje E day <= closeDay (vão cobrar ainda antes do fechamento)
+  //   Após o fechamento (hoje >= 14):
+  //     Novo ciclo começou — apenas as que já passaram neste novo ciclo
+  //     Já cobradas: day > closeDay E day <= hoje
+  //     Em breve:    day > hoje (ainda neste mês)
   let subsJaVencidas, subsAVencer;
   if (todayDay < closeDay) {
-    // Antes do fechamento: day > closeDay rodaram no mês passado → todas cobradas
-    subsJaVencidas = (card.recurring ?? []).filter(r => r.day > closeDay);
-    subsAVencer    = [];   // nada a vencer até o fechamento deste mês neste lado
+    subsJaVencidas = (card.recurring ?? []).filter(r => r.day > closeDay || r.day <= todayDay);
+    subsAVencer    = (card.recurring ?? []).filter(r => r.day > todayDay && r.day <= closeDay);
   } else {
-    // Após o fechamento: novo ciclo, conta só as que já passaram este mês
     subsJaVencidas = (card.recurring ?? []).filter(r => r.day > closeDay && r.day <= todayDay);
-    subsAVencer    = (card.recurring ?? []).filter(r => r.day > closeDay && r.day > todayDay);
+    subsAVencer    = (card.recurring ?? []).filter(r => r.day > todayDay);
   }
 
   const totalSubs   = subsJaVencidas.reduce((s, r) => s + r.amount, 0);
