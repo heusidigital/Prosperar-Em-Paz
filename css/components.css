@@ -48,8 +48,8 @@
 }
 
 .badge-fixa       { background: #00e5ff22; color: #00e5ff; border: 1px solid #00e5ff44; }
-.badge-recorrente { background: var(--color-income-dim); color: var(--color-income); border: 1px solid #2a7a5a44; }
-.badge-variavel   { background: var(--color-expense-dim); color: var(--color-expense); border: 1px solid #b07a2a44; }
+.badge-recorrente { background: var(--color-income-dim); color: var(--color-income); border: 1px solid #1e8e5e44; }
+.badge-variavel   { background: var(--color-expense-dim); color: var(--color-expense); border: 1px solid #c14b4b44; }
 .badge-paga       { background: var(--color-income-dim); color: var(--color-income); }
 .badge-aberta     { background: var(--color-expense-dim); color: var(--color-expense); }
 
@@ -87,7 +87,7 @@
 
 .nav-icon { font-size: 18px; line-height: 1; }
 .nav-dot { width: 4px; height: 4px; border-radius: 50%; background: transparent; transition: background 0.2s; }
-.nav-label { font-size: 8px; letter-spacing: 1px; color: var(--color-text-muted); font-weight: 600; }
+.nav-label { font-size: 9px; letter-spacing: 0.5px; color: var(--color-text-muted); font-weight: 600; }
 
 .nav-item.active .nav-dot { background: var(--color-gold); }
 .nav-item.active .nav-label { color: var(--color-gold); }
@@ -196,8 +196,8 @@
 .chart-group { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0; height: 100%; justify-content: flex-end; }
 .chart-bars { display: flex; gap: 2px; align-items: flex-end; width: 100%; }
 .chart-bar { flex: 1; border-radius: 2px 2px 0 0; min-height: 3px; transition: height 0.3s; }
-.chart-bar-income  { background: #2a7a5a55; }
-.chart-bar-expense { background: #b07a2a55; }
+.chart-bar-income  { background: #1e8e5e55; }
+.chart-bar-expense { background: #c14b4b55; }
 .chart-group.current .chart-bar-income  { background: var(--color-income); }
 .chart-group.current .chart-bar-expense { background: var(--color-expense); }
 .chart-month { font-size: 8px; color: var(--color-text-muted); margin-top: 4px; }
@@ -234,11 +234,11 @@
 }
 
 /* ── SALDO BLOCK ── */
-.saldo-block .label { font-size: 9px; letter-spacing: 2px; color: var(--color-text-muted); margin-bottom: 6px; }
+.saldo-block .label { font-size: 10px; letter-spacing: 2px; color: var(--color-text-muted); margin-bottom: 6px; }
 .saldo-block .value { font-size: 28px; font-weight: 700; letter-spacing: -1px; }
 .saldo-block .sub   { font-size: 10px; color: var(--color-text-muted); margin-top: 4px; }
 
-.mini-card .mc-label { font-size: 8px; letter-spacing: 1.5px; color: var(--color-text-muted); margin-bottom: 6px; }
+.mini-card .mc-label { font-size: 9px; letter-spacing: 1.5px; color: var(--color-text-muted); margin-bottom: 6px; }
 .mini-card .mc-value { font-size: 16px; font-weight: 700; }
 .mini-card .mc-sub   { font-size: 9px; color: var(--color-text-muted); margin-top: 2px; }
 .mini-card.income .mc-value { color: var(--color-income); }
@@ -254,7 +254,7 @@
 }
 .item-row:last-child { border-bottom: none; }
 .item-row .item-name { font-size: 13px; font-weight: 600; }
-.item-row .item-meta { font-size: 10px; color: var(--color-text-muted); margin-top: 2px; }
+.item-row .item-meta { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
 .item-row .item-amount { font-size: 14px; font-weight: 700; }
 .item-row .item-amount.income  { color: var(--color-income); }
 .item-row .item-amount.expense { color: var(--color-expense); }

@@ -37,6 +37,13 @@ function buildDashboard(mk, period) {
   const avgExpLabel = monthKeys.length > 1 ? `média ${formatBRL(Math.round(expense/monthKeys.length))}/mês` : '';
 
   return `
+    <div style="border-left:3px solid var(--color-gold);padding:6px 12px;margin-bottom:14px;
+                background:var(--color-card);border-radius:0 10px 10px 0">
+      <p style="font-size:11.5px;font-style:italic;color:var(--color-text-muted);line-height:1.5">
+        "Hoje eu governo meu fluxo financeiro com consciência."
+      </p>
+    </div>
+
     <div class="period-bar">
       ${PERIODS.map(p => `
         <button class="period-btn ${p.id === period ? 'active' : ''}"
@@ -99,6 +106,18 @@ function buildDashboard(mk, period) {
           <div class="cat-val">${formatBRL(amt)}</div>
         </div>`).join('')}
     </div>` : ''}
+
+    <div class="card" style="margin-top:10px">
+      <div class="section-label">SEGURANÇA DOS DADOS</div>
+      <p style="font-size:11.5px;color:var(--color-text-muted);margin-bottom:10px;line-height:1.5">
+        Seus dados vivem apenas neste aparelho. Exporte um backup regularmente
+        e guarde o arquivo em local seguro (ou use-o para levar os dados a outro aparelho).
+      </p>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="window._exportBackup()">⬇ Exportar backup</button>
+        <button class="btn btn-ghost" style="flex:1;justify-content:center" onclick="window._importBackup()">⬆ Restaurar</button>
+      </div>
+    </div>
   `;
 }
 
@@ -112,7 +131,8 @@ function buildChart(months, currentMk) {
         const ih = Math.round((income / maxVal) * 65);
         const eh = Math.round((expense / maxVal) * 65);
         return `
-          <div class="chart-group ${mk === currentMk ? 'current' : ''}">
+          <div class="chart-group ${mk === currentMk ? 'current' : ''}"
+               style="cursor:pointer" onclick="window._gotoMonth('${mk}')" title="Abrir ${formatMonthLabel(mk)}">
             <div class="chart-bars">
               <div class="chart-bar chart-bar-income" style="height:${ih}px"></div>
               <div class="chart-bar chart-bar-expense" style="height:${eh}px"></div>

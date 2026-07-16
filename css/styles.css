@@ -5,16 +5,16 @@
   --color-border: #e8e8f0;
   --color-gold: #c9a84c;
   --color-gold-dim: #c9a84c33;
-  --color-income: #2a7a5a;
-  --color-income-dim: #2a7a5a22;
-  --color-expense: #b07a2a;
-  --color-expense-dim: #b07a2a22;
+  --color-income: #1e8e5e;
+  --color-income-dim: #1e8e5e1a;
+  --color-expense: #c14b4b;
+  --color-expense-dim: #c14b4b1a;
   --color-text: #1a1a2e;
-  --color-text-muted: #aaaaaa;
+  --color-text-muted: #82828e;
   --color-text-light: #ffffff;
   --color-nav: #ffffff;
   --color-nav-border: #eeeeee;
-  --header-height: 110px;
+  --header-height: 78px;
   --nav-height: 64px;
   --radius: 14px;
   --radius-sm: 10px;
@@ -36,53 +36,128 @@ html, body {
   top: 0; left: 0; right: 0;
   z-index: 100;
   background: var(--color-header);
-  padding: 16px 20px 14px;
-  padding-top: calc(16px + env(safe-area-inset-top));
+  padding: 14px 20px 12px;
+  padding-top: calc(14px + env(safe-area-inset-top));
 }
 
 .header-top {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 12px;
+  align-items: center;
 }
 
+/* ── MÊS PROTAGONISTA (esquerda) ── */
+.header-month { position: relative; }
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.month-arrow {
+  background: none;
+  border: none;
+  color: #ffffff99;
+  font-size: 26px;
+  cursor: pointer;
+  padding: 0 8px;
+  line-height: 1;
+  min-height: 40px;
+}
+
+.month-label {
+  background: none;
+  border: none;
+  color: var(--color-gold);
+  font-size: 21px;
+  font-weight: 800;
+  text-transform: capitalize;
+  cursor: pointer;
+  padding: 4px 2px;
+  letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+}
+
+.month-caret { font-size: 12px; color: #ffffff77; }
+
+.month-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 1px 7px;
+  letter-spacing: 1px;
+  margin: 2px 0 0 36px;
+}
+.month-badge.past   { background: #c9a84c33; color: var(--color-gold); }
+.month-badge.future { background: #00e5ff22; color: #00e5ff; }
+
+/* ── SELETOR DE MESES (dropdown) ── */
+.month-picker {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 30px #00000033;
+  padding: 6px;
+  min-width: 210px;
+  max-height: 320px;
+  overflow-y: auto;
+  z-index: 300;
+}
+.month-picker.open { display: block; }
+
+.month-pick-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--color-text);
+  text-transform: capitalize;
+  cursor: pointer;
+  border-radius: 8px;
+  font-family: inherit;
+}
+.month-pick-item:hover  { background: var(--color-bg); }
+.month-pick-item.active { background: var(--color-gold-dim); color: var(--color-header); font-weight: 700; }
+
+.mp-tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--color-gold);
+  background: var(--color-gold-dim);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+/* ── MARCA (direita, discreta) ── */
+.brand { text-align: right; }
+
 .brand-name {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 2px;
   color: var(--color-gold);
-  line-height: 1.4;
 }
 
 .brand-sub {
   font-size: 8px;
   color: #ffffff55;
   letter-spacing: 1px;
-  margin-top: 3px;
-}
-
-.header-month {
-  font-size: 10px;
-  color: #ffffff66;
-  letter-spacing: 1px;
-  margin-top: 4px;
-  text-transform: capitalize;
-}
-
-.opening-phrase {
-  border-left: 3px solid var(--color-gold);
-  padding: 8px 12px;
-  border-radius: 0 8px 8px 0;
-  background: #ffffff0d;
-}
-
-.opening-phrase p {
-  color: #ffffffcc;
-  font-size: 11px;
-  font-style: italic;
-  line-height: 1.5;
-  font-weight: 300;
+  margin-top: 2px;
 }
 
 .app-main {
@@ -111,8 +186,8 @@ html, body {
 }
 
 .section-label {
-  font-size: 9px;
-  letter-spacing: 2px;
+  font-size: 10px;
+  letter-spacing: 1.5px;
   color: var(--color-text-muted);
   margin-bottom: 10px;
   display: flex;
@@ -128,3 +203,156 @@ h3 { font-size: 14px; font-weight: 700; color: var(--color-text); }
 .text-gold { color: var(--color-gold); }
 
 .divider { height: 1px; background: var(--color-border); margin: 14px 0; }
+
+/* ── BOTÃO DE ÍCONE (alvo de toque confortável) ── */
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  min-width: 38px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  padding: 0;
+  line-height: 1;
+}
+.icon-btn:active { background: var(--color-gold-dim); }
+.icon-btn.danger { color: var(--color-expense); }
+
+/* ── AGENDA DO MÊS ── */
+.agenda-day { padding: 4px 0 2px; }
+
+.agenda-day-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: var(--color-text-muted);
+  padding: 10px 0 4px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.agenda-day.today .agenda-day-label { color: var(--color-gold); border-bottom-color: var(--color-gold); }
+
+.agenda-today-tag {
+  background: var(--color-gold);
+  color: var(--color-header);
+  font-size: 8px;
+  font-weight: 800;
+  border-radius: 4px;
+  padding: 1px 6px;
+  letter-spacing: 1px;
+}
+
+.agenda-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid #f0f0f5;
+}
+.agenda-row:last-child { border-bottom: none; }
+.agenda-row.done .agenda-desc,
+.agenda-row.done .agenda-amount { opacity: 0.4; text-decoration: line-through; }
+
+.agenda-ico  { font-size: 16px; width: 24px; text-align: center; flex-shrink: 0; }
+.agenda-info { flex: 1; min-width: 0; }
+.agenda-desc { font-size: 13.5px; font-weight: 600; }
+.agenda-sub  { font-size: 10.5px; color: var(--color-text-muted); margin-top: 1px; }
+.agenda-amount { font-size: 14px; font-weight: 700; color: var(--color-expense); white-space: nowrap; }
+
+.agenda-late-tag {
+  background: var(--color-expense);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 800;
+  border-radius: 4px;
+  padding: 1px 6px;
+  letter-spacing: 1px;
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+
+.agenda-btn {
+  flex-shrink: 0;
+  border-radius: 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 38px;
+  padding: 0 12px;
+  font-family: inherit;
+}
+.agenda-btn.pay {
+  background: var(--color-income-dim);
+  border: 1px solid var(--color-income);
+  color: var(--color-income);
+}
+.agenda-btn.undo {
+  background: var(--color-income);
+  border: 1px solid var(--color-income);
+  color: #fff;
+  min-width: 38px;
+  padding: 0;
+}
+
+/* ── TOAST ── */
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--nav-height) + 18px + env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateY(16px);
+  background: var(--color-header);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 24px;
+  padding: 10px 20px;
+  box-shadow: 0 6px 24px #00000044;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+  z-index: 400;
+  white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── CONFIRMAÇÃO PRÓPRIA ── */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: #00000066;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.confirm-box {
+  background: var(--color-card);
+  border-radius: 16px;
+  padding: 22px 20px 18px;
+  max-width: 340px;
+  width: 100%;
+  box-shadow: 0 12px 40px #00000044;
+}
+
+.confirm-msg {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-text);
+  margin-bottom: 18px;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.confirm-actions .btn { min-height: 40px; }

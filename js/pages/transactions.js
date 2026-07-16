@@ -18,6 +18,7 @@ let activeTab = 'despesas';
 export function renderTransactions(mk) {
   document.getElementById('page-transactions').innerHTML = buildTransactions(mk);
   window._txMk = mk;
+  window._cardMk = mk;   // permite editar/excluir assinaturas a partir desta tela
 }
 
 function buildTransactions(mk) {
@@ -43,11 +44,10 @@ function buildExpenses(mk) {
         <div class="item-name">${esc(tx.desc)}</div>
         <div class="item-meta">${CATEGORY_LABELS[tx.category] ?? tx.category} · ${tx.date}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <div class="item-amount expense">${formatBRL(tx.amount)}</div>
-        <button onclick="window._editExpense('${tx.id}')"
-          style="background:none;border:none;color:var(--color-text-muted);font-size:15px;
-                 cursor:pointer;padding:2px 4px;line-height:1" title="Editar">✏️</button>
+      <div style="display:flex;align-items:center;gap:2px">
+        <div class="item-amount expense" style="margin-right:6px">${formatBRL(tx.amount)}</div>
+        <button class="icon-btn" onclick="window._editExpense('${tx.id}')" title="Editar">✏️</button>
+        <button class="icon-btn danger" onclick="window._delPaid('${tx.id}')" title="Excluir">🗑</button>
       </div>
     </div>`;
 
@@ -60,13 +60,14 @@ function buildExpenses(mk) {
         </div>
         <div class="item-meta">${CATEGORY_LABELS[tx.category] ?? tx.category} · ${tx.date}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <div class="item-amount" style="color:var(--color-gold)">${formatBRL(tx.amount)}</div>
+      <div style="display:flex;align-items:center;gap:2px">
+        <div class="item-amount" style="color:var(--color-gold);margin-right:4px">${formatBRL(tx.amount)}</div>
         <button onclick="window._markPaid('${tx.id}')"
-          style="background:none;border:1px solid var(--color-income);color:var(--color-income);
-                 border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;white-space:nowrap">✓ Pagar</button>
-        <button onclick="window._delPending('${tx.id}')"
-          style="background:none;border:none;color:var(--color-expense);font-size:15px;cursor:pointer;padding:2px">🗑</button>
+          style="background:var(--color-income-dim);border:1px solid var(--color-income);color:var(--color-income);
+                 border-radius:8px;min-height:38px;padding:0 10px;font-size:11px;font-weight:700;
+                 cursor:pointer;white-space:nowrap">✓ Pagar</button>
+        <button class="icon-btn" onclick="window._editExpense('${tx.id}')" title="Editar">✏️</button>
+        <button class="icon-btn danger" onclick="window._delPending('${tx.id}')" title="Excluir">🗑</button>
       </div>
     </div>`;
 
@@ -74,7 +75,7 @@ function buildExpenses(mk) {
   const cards = getCards();
   // Monta lista plana com referência ao cartão, ordenada por dia do mês
   const allSubs = cards.flatMap(c =>
-    (c.recurring ?? []).map(r => ({ ...r, cardName: c.name }))
+    (c.recurring ?? []).map(r => ({ ...r, cardName: c.name, cardId: c.id }))
   ).sort((a, b) => a.day - b.day);
   const totalSubs = allSubs.reduce((s, r) => s + r.amount, 0);
 
@@ -119,7 +120,11 @@ function buildExpenses(mk) {
                              font-size:9px;padding:1px 6px;border-radius:4px">${esc(r.cardName)}</span>
               </div>
             </div>
-            <div class="item-amount" style="color:var(--color-expense)">${formatBRL(r.amount)}</div>
+            <div style="display:flex;align-items:center;gap:2px">
+              <div class="item-amount" style="color:var(--color-expense);margin-right:6px">${formatBRL(r.amount)}</div>
+              <button class="icon-btn" onclick="window._crEdit('${r.cardId}','${r.id}')" title="Editar">✏️</button>
+              <button class="icon-btn danger" onclick="window._crDelete('${r.cardId}','${r.id}')" title="Excluir">🗑</button>
+            </div>
           </div>`).join('')}
         <div style="border-top:1px solid var(--color-border);margin-top:6px;padding-top:8px;
                     display:flex;justify-content:space-between;align-items:center">
@@ -211,13 +216,17 @@ function buildReceitas(mk) {
     <div class="card">
       ${fixed.map(s => `
         <div class="item-row">
-          <div>
+          <div style="flex:1">
             <div class="item-name">${esc(s.name)} <span class="badge badge-fixa">FIXA</span></div>
             <div class="item-meta status-row">
               <span class="dot dot-auto"></span>Automática · dia ${s.day ?? '—'}
             </div>
           </div>
-          <div class="item-amount income">${formatBRL(s.amount)}</div>
+          <div style="display:flex;align-items:center;gap:2px">
+            <div class="item-amount income" style="margin-right:6px">${formatBRL(s.amount)}</div>
+            <button class="icon-btn" onclick="window._srcEditInline('${s.id}')" title="Editar">✏️</button>
+            <button class="icon-btn danger" onclick="window._delSource('${s.id}')" title="Excluir">🗑</button>
+          </div>
         </div>`).join('') || '<div class="empty-state" style="padding:12px 0">Nenhuma receita fixa cadastrada</div>'}
     </div>
 
@@ -243,11 +252,12 @@ function buildReceitas(mk) {
                   : `<span class="dot dot-pend"></span>Aguardando`}
             </div>
           </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
             <div class="item-amount income">${formatBRL(s.amount)}</div>
-            <button onclick="window._delSource('${s.id}')"
-              style="background:none;border:none;color:var(--color-expense);font-size:14px;
-                     cursor:pointer;padding:2px 4px;line-height:1">🗑</button>
+            <div style="display:flex;gap:2px">
+              <button class="icon-btn" onclick="window._srcEditInline('${s.id}')" title="Editar">✏️</button>
+              <button class="icon-btn danger" onclick="window._delSource('${s.id}')" title="Excluir">🗑</button>
+            </div>
           </div>
         </div>`;
       }).join('') || '<div class="empty-state" style="padding:12px 0">Nenhuma fonte recorrente</div>'}
@@ -264,11 +274,10 @@ function buildReceitas(mk) {
             <div class="item-name">${esc(tx.desc)}</div>
             <div class="item-meta">${tx.date}</div>
           </div>
-          <div style="display:flex;align-items:center;gap:10px">
-            <div class="item-amount income">${formatBRL(tx.amount)}</div>
-            <button onclick="window._delIncomeTx('${tx.id}')"
-              style="background:none;border:none;color:var(--color-expense);font-size:16px;
-                     cursor:pointer;padding:4px;line-height:1">🗑</button>
+          <div style="display:flex;align-items:center;gap:2px">
+            <div class="item-amount income" style="margin-right:6px">${formatBRL(tx.amount)}</div>
+            <button class="icon-btn" onclick="window._editIncomeTx('${tx.id}')" title="Editar">✏️</button>
+            <button class="icon-btn danger" onclick="window._delIncomeTx('${tx.id}')" title="Excluir">🗑</button>
           </div>
         </div>`).join('')
       : '<div class="empty-state" style="padding:12px 0">Nenhum lançamento variável</div>'}
@@ -285,15 +294,32 @@ window._editExpense       = id   => { const tx = getTransactions(window._txMk).f
 window._openIncomeModal   = ()   => openIncomeModal(window._txMk);
 window._openSourceModal   = type => openSourceModal(type);
 window._openManageSources = ()   => openManageSources();
-window._confirmIncome     = txId => { confirmIncome(window._txMk, txId); renderTransactions(window._txMk); };
-window._delIncomeTx = id => {
-  if (!confirm('Remover este lançamento?')) return;
+window._confirmIncome     = txId => { confirmIncome(window._txMk, txId); toast('✓ Recebimento confirmado'); renderTransactions(window._txMk); };
+window._editIncomeTx = id => {
+  const tx = getTransactions(window._txMk).find(t => t.id === id);
+  if (tx) openIncomeModal(window._txMk, tx);
+};
+window._srcEditInline = id => {
+  const src = getSources().find(s => s.id === id);
+  window._srcFromManage = false;
+  if (src) openSourceModal(src.type, src);
+};
+window._delIncomeTx = async id => {
+  if (!await appConfirm('Remover este lançamento?', 'Remover')) return;
   removeTransaction(window._txMk, id);
+  toast('✓ Lançamento removido');
   renderTransactions(window._txMk);
 };
-window._delSource   = id => {
-  if (!confirm('Remover esta fonte recorrente? Os lançamentos já feitos não serão apagados.')) return;
+window._delSource   = async id => {
+  if (!await appConfirm('Remover esta fonte de receita? Os lançamentos já feitos não serão apagados.', 'Remover')) return;
   removeSource(id);
+  toast('✓ Fonte removida');
+  renderTransactions(window._txMk);
+};
+window._delPaid = async id => {
+  if (!await appConfirm('Excluir esta despesa?', 'Excluir')) return;
+  removeTransaction(window._txMk, id);
+  toast('✓ Despesa excluída');
   renderTransactions(window._txMk);
 };
 window._markPaid    = id => {
@@ -301,10 +327,11 @@ window._markPaid    = id => {
   const mk = window._txMk;
   const txs = getTransactions(mk);
   const tx  = txs.find(t => t.id === id);
-  if (tx) { updateTransaction(mk, { ...tx, pending: false }); renderTransactions(mk); }
+  if (tx) { updateTransaction(mk, { ...tx, pending: false }); toast('✓ Despesa paga'); renderTransactions(mk); }
 };
-window._delPending  = id => {
-  if (!confirm('Excluir esta despesa pendente?')) return;
+window._delPending  = async id => {
+  if (!await appConfirm('Excluir esta despesa pendente?', 'Excluir')) return;
   removeTransaction(window._txMk, id);
+  toast('✓ Despesa excluída');
   renderTransactions(window._txMk);
 };

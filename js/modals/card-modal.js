@@ -3,24 +3,29 @@ import { getCards, setCards, addCardExpense, getCardExpenses, setCardExpenses, g
 
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-export function openCardExpenseModal(mk, cardId) {
-  const card = getCards().find(c => c.id === cardId);
+export function openCardExpenseModal(mk, cardId, existing = null) {
+  const card   = getCards().find(c => c.id === cardId);
+  const isEdit = !!existing;
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">Gasto — ${esc(card.name)}</div>
+    <div class="modal-title">${isEdit ? 'Editar Gasto' : 'Gasto'} — ${esc(card.name)}</div>
     <div class="form-group">
       <label class="form-label">DESCRIÇÃO</label>
-      <input class="form-input" id="ce-desc" placeholder="Ex: Farmácia">
+      <input class="form-input" id="ce-desc" placeholder="Ex: Farmácia" value="${isEdit ? esc(existing.desc) : ''}">
     </div>
     <div class="form-group">
       <label class="form-label">VALOR (R$)</label>
-      <input class="form-input" id="ce-amount" type="number" step="0.01" min="0" placeholder="0,00">
+      <input class="form-input" id="ce-amount" type="number" step="0.01" min="0" placeholder="0,00"
+             value="${isEdit ? (existing.amount / 100).toFixed(2) : ''}">
     </div>
     <div class="form-group">
       <label class="form-label">DATA</label>
-      <input class="form-input" id="ce-date" type="date" value="${getDateStr()}">
+      <input class="form-input" id="ce-date" type="date" value="${isEdit ? existing.date : getDateStr()}">
     </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="window._ceSave('${mk}','${cardId}')">Adicionar</button>
+    <button class="btn btn-primary" style="width:100%;margin-top:8px"
+      onclick="window._ceSave('${mk}','${cardId}','${isEdit ? existing.id : ''}')">
+      ${isEdit ? 'Salvar' : 'Adicionar'}
+    </button>
   `);
 }
 
@@ -48,27 +53,37 @@ export function openAddRecurringModal(cardId, existingRec) {
   `);
 }
 
-export function openAddLoanModal(cardId) {
+export function openAddLoanModal(cardId, existing = null) {
+  const isEdit = !!existing;
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">Novo Empréstimo</div>
+    <div class="modal-title">${isEdit ? 'Editar Empréstimo' : 'Novo Empréstimo'}</div>
     <div class="form-group">
       <label class="form-label">DESCRIÇÃO</label>
-      <input class="form-input" id="ln-desc" placeholder="Ex: Empréstimo pessoal">
+      <input class="form-input" id="ln-desc" placeholder="Ex: Empréstimo pessoal" value="${isEdit ? esc(existing.desc) : ''}">
     </div>
     <div class="form-group">
       <label class="form-label">VALOR DA PARCELA (R$)</label>
-      <input class="form-input" id="ln-amount" type="number" step="0.01" min="0" placeholder="0,00">
+      <input class="form-input" id="ln-amount" type="number" step="0.01" min="0" placeholder="0,00"
+             value="${isEdit ? (existing.installmentAmount / 100).toFixed(2) : ''}">
     </div>
     <div class="form-group">
       <label class="form-label">TOTAL DE PARCELAS</label>
-      <input class="form-input" id="ln-total" type="number" min="1" placeholder="Ex: 24">
+      <input class="form-input" id="ln-total" type="number" min="1" placeholder="Ex: 24"
+             value="${isEdit ? existing.totalInstallments : ''}">
     </div>
+    ${isEdit ? `
+    <div class="form-group">
+      <label class="form-label">PARCELAS JÁ PAGAS</label>
+      <input class="form-input" id="ln-paid" type="number" min="0" value="${existing.paidInstallments}">
+    </div>` : ''}
     <div class="form-group">
       <label class="form-label">DIA DO PAGAMENTO</label>
-      <input class="form-input" id="ln-day" type="number" min="1" max="31" placeholder="Ex: 10">
+      <input class="form-input" id="ln-day" type="number" min="1" max="31" placeholder="Ex: 10"
+             value="${isEdit ? existing.day : ''}">
     </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="window._lnSave('${cardId}')">Salvar</button>
+    <button class="btn btn-primary" style="width:100%;margin-top:8px"
+      onclick="window._lnSave('${cardId}','${isEdit ? existing.id : ''}')">Salvar</button>
   `);
 }
 
@@ -108,8 +123,8 @@ window._ciSave = function(cardId) {
   if (typeof window._renderCardsAfterModal === 'function') window._renderCardsAfterModal();
 };
 
-window._ciClear = function(cardId) {
-  if (!confirm('Zerar a fatura fechada?')) return;
+window._ciClear = async function(cardId) {
+  if (!await appConfirm('Zerar a fatura fechada?', 'Zerar')) return;
   const mk = window._cardMk;
   setClosedInvoice(cardId, mk, { amount: 0, paid: false });
   closeModal();
@@ -145,12 +160,20 @@ export function openCardConfigModal(cardId) {
   `);
 }
 
-window._ceSave = function(mk, cardId) {
+window._ceSave = function(mk, cardId, existingId) {
   const desc   = document.getElementById('ce-desc').value.trim();
   const amount = Math.round(parseFloat(document.getElementById('ce-amount').value) * 100);
   const date   = document.getElementById('ce-date').value;
   if (!desc || !amount || !date) return alert('Preencha todos os campos.');
-  addCardExpense(mk, { id: uuid(), cardId, date, desc, amount });
+  if (existingId) {
+    const expenses = getCardExpenses(mk);
+    const exp = expenses.find(e => e.id === existingId);
+    if (exp) { Object.assign(exp, { desc, amount, date }); setCardExpenses(mk, expenses); }
+    toast('✓ Gasto atualizado');
+  } else {
+    addCardExpense(mk, { id: uuid(), cardId, date, desc, amount });
+    toast('✓ Gasto adicionado');
+  }
   closeModal();
 };
 
@@ -197,8 +220,8 @@ window._crSave = function(cardId, existingId) {
   if (typeof window._renderCardsAfterModal === 'function') window._renderCardsAfterModal();
 };
 
-window._crDelete = function(cardId, recurringId) {
-  if (!confirm('Remover esta assinatura? Ela não aparecerá nos próximos meses.')) return;
+window._crDelete = async function(cardId, recurringId) {
+  if (!await appConfirm('Remover esta assinatura? Ela não aparecerá nos próximos meses.', 'Remover')) return;
   const cards = getCards();
   const card  = cards.find(c => c.id === cardId);
   if (!card) return;
@@ -213,7 +236,7 @@ window._crDelete = function(cardId, recurringId) {
   closeModal();
 };
 
-window._lnSave = function(cardId) {
+window._lnSave = function(cardId, existingId) {
   const desc   = document.getElementById('ln-desc').value.trim();
   const amount = Math.round(parseFloat(document.getElementById('ln-amount').value) * 100);
   const total  = parseInt(document.getElementById('ln-total').value);
@@ -223,7 +246,18 @@ window._lnSave = function(cardId) {
   const card  = cards.find(c => c.id === cardId);
   if (!card) return;
   if (!card.loans) card.loans = [];
-  card.loans.push({ id: uuid(), desc, installmentAmount: amount, day, totalInstallments: total, paidInstallments: 0, startMonth: getMonthKey() });
+  if (existingId) {
+    const loan = card.loans.find(l => l.id === existingId);
+    if (loan) {
+      const paidEl = document.getElementById('ln-paid');
+      const paid   = paidEl ? Math.min(parseInt(paidEl.value || '0'), total) : loan.paidInstallments;
+      Object.assign(loan, { desc, installmentAmount: amount, day, totalInstallments: total, paidInstallments: paid });
+    }
+    toast('✓ Empréstimo atualizado');
+  } else {
+    card.loans.push({ id: uuid(), desc, installmentAmount: amount, day, totalInstallments: total, paidInstallments: 0, startMonth: getMonthKey() });
+    toast('✓ Empréstimo adicionado');
+  }
   setCards(cards);
   closeModal();
 };

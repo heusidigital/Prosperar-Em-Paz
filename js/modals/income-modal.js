@@ -4,23 +4,28 @@ import { addTransaction, updateTransaction, getTransactions,
 
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-export function openIncomeModal(mk) {
+export function openIncomeModal(mk, existing = null) {
+  const isEdit = !!existing;
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">Lançar Receita Variável</div>
+    <div class="modal-title">${isEdit ? 'Editar' : 'Lançar'} Receita Variável</div>
     <div class="form-group">
       <label class="form-label">DESCRIÇÃO</label>
-      <input class="form-input" id="inc-desc" placeholder="Ex: Assessoria Empresa X">
+      <input class="form-input" id="inc-desc" placeholder="Ex: Assessoria Empresa X" value="${isEdit ? esc(existing.desc) : ''}">
     </div>
     <div class="form-group">
       <label class="form-label">VALOR (R$)</label>
-      <input class="form-input" id="inc-amount" type="number" step="0.01" min="0" placeholder="0,00">
+      <input class="form-input" id="inc-amount" type="number" step="0.01" min="0" placeholder="0,00"
+             value="${isEdit ? (existing.amount / 100).toFixed(2) : ''}">
     </div>
     <div class="form-group">
       <label class="form-label">DATA</label>
-      <input class="form-input" id="inc-date" type="date" value="${getDateStr()}">
+      <input class="form-input" id="inc-date" type="date" value="${isEdit ? existing.date : getDateStr()}">
     </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="window._incSave('${mk}')">Adicionar</button>
+    <button class="btn btn-primary" style="width:100%;margin-top:8px"
+      onclick="window._incSave('${mk}','${isEdit ? existing.id : ''}')">
+      ${isEdit ? 'Salvar' : 'Adicionar'}
+    </button>
   `);
 }
 
@@ -109,12 +114,19 @@ export function confirmIncome(mk, txId) {
 }
 
 // ── Lançamento variável ───────────────────────────────────────
-window._incSave = function(mk) {
+window._incSave = function(mk, existingId) {
   const desc   = document.getElementById('inc-desc').value.trim();
   const amount = Math.round(parseFloat(document.getElementById('inc-amount').value) * 100);
   const date   = document.getElementById('inc-date').value;
   if (!desc || !amount || !date) return alert('Preencha todos os campos.');
-  addTransaction(mk, { id: uuid(), date, type: 'income', amount, desc, confirmed: true });
+  if (existingId) {
+    const tx = getTransactions(mk).find(t => t.id === existingId);
+    if (tx) updateTransaction(mk, { ...tx, desc, amount, date });
+    toast('✓ Receita atualizada');
+  } else {
+    addTransaction(mk, { id: uuid(), date, type: 'income', amount, desc, confirmed: true });
+    toast('✓ Receita lançada');
+  }
   closeModal();
 };
 
@@ -145,7 +157,9 @@ window._srcSave = function(type, isEdit) {
       }
     }
     closeModal();
-    openManageSources();
+    toast('✓ Fonte atualizada');
+    // Só reabre o gerenciador se a edição partiu dele
+    if (window._srcFromManage) openManageSources();
     return;
   }
 
@@ -174,11 +188,13 @@ window._srcSave = function(type, isEdit) {
 
 window._srcEdit   = function(id) {
   const src = getSources().find(s => s.id === id);
+  window._srcFromManage = true;
   if (src) openSourceModal(src.type, src);
 };
-window._srcDelete = function(id) {
-  if (!confirm('Remover esta fonte? Os lançamentos já feitos não serão apagados.')) return;
+window._srcDelete = async function(id) {
+  if (!await appConfirm('Remover esta fonte? Os lançamentos já feitos não serão apagados.', 'Remover')) return;
   removeSource(id);
+  toast('✓ Fonte removida');
   openManageSources();
 };
 window._srcNew    = function(type) { openSourceModal(type); };

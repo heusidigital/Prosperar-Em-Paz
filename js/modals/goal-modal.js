@@ -1,5 +1,5 @@
 import { uuid } from '../utils.js';
-import { addGoal, updateGoal, addScheduled, getGoals } from '../storage.js';
+import { addGoal, updateGoal, addScheduled, updateScheduled, getGoals } from '../storage.js';
 
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
@@ -13,19 +13,21 @@ const CATEGORIES = [
 
 const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-export function openBudgetModal() {
+export function openBudgetModal(existing = null) {
+  const isEdit = !!existing;
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">Novo Orçamento</div>
+    <div class="modal-title">${isEdit ? 'Editar' : 'Novo'} Orçamento</div>
     <div class="form-group">
       <label class="form-label">CATEGORIA</label>
       <select class="form-select" id="bgt-cat">
-        ${CATEGORIES.map(c => `<option value="${c.id}">${c.label}</option>`).join('')}
+        ${CATEGORIES.map(c => `<option value="${c.id}" ${existing?.category === c.id ? 'selected' : ''}>${c.label}</option>`).join('')}
       </select>
     </div>
     <div class="form-group">
       <label class="form-label">LIMITE MENSAL (R$)</label>
-      <input class="form-input" id="bgt-limit" type="number" step="0.01" min="0" placeholder="0,00">
+      <input class="form-input" id="bgt-limit" type="number" step="0.01" min="0" placeholder="0,00"
+             value="${isEdit ? (existing.limit / 100).toFixed(2) : ''}">
     </div>
     <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="window._bgtSave()">Salvar</button>
   `);
@@ -51,37 +53,41 @@ export function openSavingsGoalModal(existing = null) {
   `);
 }
 
-export function openScheduledModal() {
+export function openScheduledModal(existing = null) {
+  const isEdit = !!existing;
   openModal(`
     <div class="modal-handle"></div>
-    <div class="modal-title">Nova Despesa Programada</div>
+    <div class="modal-title">${isEdit ? 'Editar' : 'Nova'} Despesa Programada</div>
     <div class="form-group">
       <label class="form-label">DESCRIÇÃO</label>
-      <input class="form-input" id="sc-desc" placeholder="Ex: IPVA — Carro">
+      <input class="form-input" id="sc-desc" placeholder="Ex: IPVA — Carro" value="${isEdit ? esc(existing.desc) : ''}">
     </div>
     <div class="form-group">
       <label class="form-label">VALOR (R$)</label>
-      <input class="form-input" id="sc-amount" type="number" step="0.01" min="0" placeholder="0,00">
+      <input class="form-input" id="sc-amount" type="number" step="0.01" min="0" placeholder="0,00"
+             value="${isEdit ? (existing.amount / 100).toFixed(2) : ''}">
     </div>
     <div class="two-col">
       <div class="form-group">
         <label class="form-label">MÊS</label>
         <select class="form-select" id="sc-month">
-          ${MONTHS.map((m,i) => `<option value="${i+1}">${m}</option>`).join('')}
+          ${MONTHS.map((m,i) => `<option value="${i+1}" ${existing?.dueMonth === i+1 ? 'selected' : ''}>${m}</option>`).join('')}
         </select>
       </div>
       <div class="form-group">
         <label class="form-label">DIA</label>
-        <input class="form-input" id="sc-day" type="number" min="1" max="31" placeholder="Ex: 20">
+        <input class="form-input" id="sc-day" type="number" min="1" max="31" placeholder="Ex: 20"
+               value="${isEdit ? existing.dueDay : ''}">
       </div>
     </div>
     <div class="form-group">
       <label class="form-label">CATEGORIA</label>
       <select class="form-select" id="sc-cat">
-        ${CATEGORIES.map(c => `<option value="${c.id}">${c.label}</option>`).join('')}
+        ${CATEGORIES.map(c => `<option value="${c.id}" ${existing?.category === c.id ? 'selected' : ''}>${c.label}</option>`).join('')}
       </select>
     </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="window._scSave()">Salvar</button>
+    <button class="btn btn-primary" style="width:100%;margin-top:8px"
+      onclick="window._scSave('${isEdit ? existing.id : ''}')">Salvar</button>
   `);
 }
 
@@ -108,13 +114,19 @@ window._sgSave = function(existingId) {
   closeModal();
 };
 
-window._scSave = function() {
+window._scSave = function(existingId) {
   const desc   = document.getElementById('sc-desc').value.trim();
   const amount = Math.round(parseFloat(document.getElementById('sc-amount').value) * 100);
   const month  = parseInt(document.getElementById('sc-month').value);
   const day    = parseInt(document.getElementById('sc-day').value);
   const cat    = document.getElementById('sc-cat').value;
   if (!desc || !amount || !day) return alert('Preencha todos os campos.');
-  addScheduled({ id: uuid(), desc, amount, dueMonth: month, dueDay: day, category: cat, recurrence: 'anual' });
+  if (existingId) {
+    updateScheduled({ id: existingId, desc, amount, dueMonth: month, dueDay: day, category: cat, recurrence: 'anual' });
+    toast('✓ Programada atualizada');
+  } else {
+    addScheduled({ id: uuid(), desc, amount, dueMonth: month, dueDay: day, category: cat, recurrence: 'anual' });
+    toast('✓ Programada criada');
+  }
   closeModal();
 };

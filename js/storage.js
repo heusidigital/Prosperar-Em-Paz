@@ -58,6 +58,11 @@ export const setMonthInit = (mk) => set(`init_${mk}`, true);
 export const getInvoiceStatus = (cardId, mk)         => get(`invoice_${cardId}_${mk}`, 'aberta');
 export const setInvoiceStatus = (cardId, mk, status) => set(`invoice_${cardId}_${mk}`, status);
 
+// ── AGENDA (pago/não-pago por item, por mês) ─────────────
+// map: { itemId: true } — itemId estável (sub_/loan_/sch_)
+export const getAgendaPaid = (mk)      => get(`agenda_paid_${mk}`, {});
+export const setAgendaPaid = (mk, map) => set(`agenda_paid_${mk}`, map);
+
 // ── CLOSED INVOICE (FATURA FECHADA) ──────────────────────
 // amount in centavos, paid = true when user marks as paid
 export const getClosedInvoice = (cardId, mk)       => get(`closed_invoice_${cardId}_${mk}`, { amount: 0, paid: false });

@@ -1,5 +1,5 @@
 import { formatBRL, installmentQuitMonth } from '../utils.js';
-import { getCards, getCardExpenses, setCardExpenses, removeCardExpense, getClosedInvoice, setClosedInvoice } from '../storage.js';
+import { getCards, setCards, getCardExpenses, setCardExpenses, removeCardExpense, getClosedInvoice, setClosedInvoice } from '../storage.js';
 import { openCardExpenseModal, openAddRecurringModal, openAddLoanModal, openCardConfigModal, openClosedInvoiceModal } from '../modals/card-modal.js';
 
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -164,14 +164,10 @@ function buildCardSection(card, mk) {
             <div class="item-name">${esc(r.desc)}</div>
             <div class="item-meta">Dia ${r.day}</div>
           </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <div class="item-amount expense">${formatBRL(r.amount)}</div>
-            <button onclick="window._crEdit('${card.id}','${r.id}')"
-              style="background:none;border:none;color:var(--color-text-muted);font-size:15px;
-                     cursor:pointer;padding:2px 4px" title="Editar">✏️</button>
-            <button onclick="window._crDelete('${card.id}','${r.id}')"
-              style="background:none;border:none;color:var(--color-expense);font-size:15px;
-                     cursor:pointer;padding:2px">🗑</button>
+          <div style="display:flex;align-items:center;gap:2px">
+            <div class="item-amount expense" style="margin-right:6px">${formatBRL(r.amount)}</div>
+            <button class="icon-btn" onclick="window._crEdit('${card.id}','${r.id}')" title="Editar">✏️</button>
+            <button class="icon-btn danger" onclick="window._crDelete('${card.id}','${r.id}')" title="Excluir">🗑</button>
           </div>
         </div>`).join('') : '<p class="text-muted" style="padding:8px 0">Nenhuma assinatura</p>'}
 
@@ -183,11 +179,15 @@ function buildCardSection(card, mk) {
       </div>
       ${cardLoans.length ? cardLoans.map(loan => `
         <div class="item-row">
-          <div>
+          <div style="flex:1">
             <div class="item-name">${esc(loan.desc)}</div>
-            <div class="item-meta">Parcela ${loan.paidInstallments + 1} de ${loan.totalInstallments} · quita em ${installmentQuitMonth(loan.startMonth, loan.totalInstallments)}</div>
+            <div class="item-meta">Parcela ${loan.paidInstallments + 1} de ${loan.totalInstallments} · dia ${loan.day} · quita em ${installmentQuitMonth(loan.startMonth, loan.totalInstallments)}</div>
           </div>
-          <div class="item-amount expense">${formatBRL(loan.installmentAmount)}</div>
+          <div style="display:flex;align-items:center;gap:2px">
+            <div class="item-amount expense" style="margin-right:6px">${formatBRL(loan.installmentAmount)}</div>
+            <button class="icon-btn" onclick="window._lnEdit('${card.id}','${loan.id}')" title="Editar">✏️</button>
+            <button class="icon-btn danger" onclick="window._lnDelete('${card.id}','${loan.id}')" title="Excluir">🗑</button>
+          </div>
         </div>`).join('') : '<p class="text-muted" style="padding:8px 0">Nenhum empréstimo ativo</p>'}
 
       <div class="divider"></div>
@@ -202,11 +202,10 @@ function buildCardSection(card, mk) {
             <div class="item-name">${esc(e.desc)}</div>
             <div class="item-meta">${e.date}</div>
           </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div class="item-amount expense">${formatBRL(e.amount)}</div>
-            <button onclick="window._delCardExpense('${e.id}')"
-              style="background:none;border:none;color:var(--color-expense);font-size:15px;
-                     cursor:pointer;padding:2px">🗑</button>
+          <div style="display:flex;align-items:center;gap:2px">
+            <div class="item-amount expense" style="margin-right:6px">${formatBRL(e.amount)}</div>
+            <button class="icon-btn" onclick="window._ceEdit('${e.id}')" title="Editar">✏️</button>
+            <button class="icon-btn danger" onclick="window._delCardExpense('${e.id}')" title="Excluir">🗑</button>
           </div>
         </div>`).join('') : '<p class="text-muted" style="padding:8px 0">Nenhum gasto avulso</p>'}
     </div>`;
@@ -224,6 +223,29 @@ window._openCardConfig     = id => openCardConfigModal(id);
 window._openClosedInvoice  = id => openClosedInvoiceModal(id);
 // _crDelete está definido em card-modal.js (importado acima)
 
+window._lnEdit = function(cardId, loanId) {
+  const card = getCards().find(c => c.id === cardId);
+  const loan = card?.loans?.find(l => l.id === loanId);
+  if (loan) openAddLoanModal(cardId, loan);
+};
+
+window._lnDelete = async function(cardId, loanId) {
+  if (!await appConfirm('Excluir este empréstimo? As parcelas futuras não serão mais lançadas.', 'Excluir')) return;
+  const cards = getCards();
+  const card  = cards.find(c => c.id === cardId);
+  if (!card) return;
+  card.loans = (card.loans ?? []).filter(l => l.id !== loanId);
+  setCards(cards);
+  toast('✓ Empréstimo excluído');
+  renderCards(window._cardMk);
+};
+
+window._ceEdit = function(expId) {
+  const mk  = window._cardMk;
+  const exp = getCardExpenses(mk).find(e => e.id === expId);
+  if (exp) openCardExpenseModal(mk, exp.cardId, exp);
+};
+
 window._payClosedInvoice = function(cardId) {
   const mk = window._cardMk;
   const cur = getClosedInvoice(cardId, mk);
@@ -238,18 +260,20 @@ window._reopenClosedInvoice = function(cardId) {
   renderCards(mk);
 };
 
-window._delCardExpense = function(expId) {
-  if (!confirm('Remover este gasto avulso?')) return;
+window._delCardExpense = async function(expId) {
+  if (!await appConfirm('Remover este gasto avulso?', 'Remover')) return;
   const mk = window._cardMk;
   removeCardExpense(mk, expId);
+  toast('✓ Gasto removido');
   renderCards(mk);
 };
 
-window._clearAvulsos = function(cardId) {
-  if (!confirm('Remover TODOS os gastos avulsos deste cartão no mês atual?\n\nUse isso para zerar os lançamentos antigos antes de começar pelo novo sistema.')) return;
+window._clearAvulsos = async function(cardId) {
+  if (!await appConfirm('Remover <b>todos</b> os gastos avulsos deste cartão no mês atual?<br><br>Use isso para zerar os lançamentos antigos antes de começar pelo novo sistema.', 'Remover tudo')) return;
   const mk = window._cardMk;
   // mantém assinaturas e empréstimos, remove apenas avulsos deste cartão
   const remaining = getCardExpenses(mk).filter(e => e.cardId !== cardId || e.isRecurring || e.isLoan);
   setCardExpenses(mk, remaining);
+  toast('✓ Avulsos removidos');
   renderCards(mk);
 };

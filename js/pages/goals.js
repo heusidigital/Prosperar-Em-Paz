@@ -52,7 +52,11 @@ function buildOrcamento(mk) {
           <div style="margin-bottom:14px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
               <div style="font-size:13px;font-weight:600">${CATEGORY_LABELS[g.category] ?? esc(g.category)}</div>
-              <div style="font-size:11px;color:${over?'var(--color-expense)':'var(--color-text-muted)'}">${formatBRL(spent)} / ${formatBRL(g.limit)}</div>
+              <div style="display:flex;align-items:center;gap:2px">
+                <span style="font-size:11px;color:${over?'var(--color-expense)':'var(--color-text-muted)'};margin-right:4px">${formatBRL(spent)} / ${formatBRL(g.limit)}</span>
+                <button class="icon-btn" style="min-width:32px;min-height:32px;font-size:13px" onclick="window._editBudget('${g.id}')" title="Editar">✏️</button>
+                <button class="icon-btn danger" style="min-width:32px;min-height:32px;font-size:13px" onclick="window._removeBudget('${g.id}')" title="Excluir">🗑</button>
+              </div>
             </div>
             <div class="progress-wrap">
               <div class="progress-fill ${over?'progress-warn':'progress-expense'}" style="width:${pct}%"></div>
@@ -122,13 +126,14 @@ function buildProgramadas() {
     <div class="card">
       ${items.length ? items.map(s => `
         <div class="item-row">
-          <div>
+          <div style="flex:1">
             <div class="item-name">${esc(s.desc)}</div>
             <div class="item-meta">${CATEGORY_LABELS[s.category] ?? esc(s.category)} · ${MONTHS_FULL[s.dueMonth-1]}, dia ${s.dueDay} · anual</div>
           </div>
-          <div style="display:flex;align-items:center;gap:10px">
-            <div class="item-amount expense">${formatBRL(s.amount)}</div>
-            <button class="btn btn-sm" style="color:var(--color-expense);background:var(--color-expense-dim);border:1px solid var(--color-expense)" onclick="window._removeScheduled('${s.id}')">×</button>
+          <div style="display:flex;align-items:center;gap:2px">
+            <div class="item-amount expense" style="margin-right:6px">${formatBRL(s.amount)}</div>
+            <button class="icon-btn" onclick="window._editScheduled('${s.id}')" title="Editar">✏️</button>
+            <button class="icon-btn danger" onclick="window._removeScheduled('${s.id}')" title="Excluir">🗑</button>
           </div>
         </div>`).join('') : '<div class="empty-state">Nenhuma despesa programada</div>'}
     </div>`;
@@ -136,7 +141,19 @@ function buildProgramadas() {
 
 window._goalTab        = t  => { activeGoalTab = t; renderGoals(window._goalMk); };
 window._openBudget     = () => openBudgetModal();
+window._editBudget     = id => { const g = getGoals().find(g => g.id === id); if (g) openBudgetModal(g); };
 window._openSavings    = id => { const g = id ? getGoals().find(g => g.id === id) : null; openSavingsGoalModal(g); };
 window._openScheduled  = () => openScheduledModal();
-window._removeGoal     = id => { if (confirm('Remover esta meta?')) { removeGoal(id); renderGoals(window._goalMk); } };
-window._removeScheduled = id => { if (confirm('Remover?')) { removeScheduled(id); renderGoals(window._goalMk); } };
+window._editScheduled  = id => { const s = getScheduled().find(s => s.id === id); if (s) openScheduledModal(s); };
+window._removeGoal     = async id => {
+  if (!await appConfirm('Remover esta meta?', 'Remover')) return;
+  removeGoal(id); toast('✓ Meta removida'); renderGoals(window._goalMk);
+};
+window._removeBudget   = async id => {
+  if (!await appConfirm('Remover este orçamento?', 'Remover')) return;
+  removeGoal(id); toast('✓ Orçamento removido'); renderGoals(window._goalMk);
+};
+window._removeScheduled = async id => {
+  if (!await appConfirm('Remover esta despesa programada?', 'Remover')) return;
+  removeScheduled(id); toast('✓ Programada removida'); renderGoals(window._goalMk);
+};

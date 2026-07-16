@@ -1,4 +1,4 @@
-const CACHE = 'eft-v16';
+const CACHE = 'eft-v17';
 const ASSETS = [
   '/Prosperar-Em-Paz/',
   '/Prosperar-Em-Paz/index.html',
@@ -7,6 +7,7 @@ const ASSETS = [
   '/Prosperar-Em-Paz/js/app.js',
   '/Prosperar-Em-Paz/js/utils.js',
   '/Prosperar-Em-Paz/js/storage.js',
+  '/Prosperar-Em-Paz/js/pages/agenda.js',
   '/Prosperar-Em-Paz/js/pages/dashboard.js',
   '/Prosperar-Em-Paz/js/pages/transactions.js',
   '/Prosperar-Em-Paz/js/pages/cards.js',

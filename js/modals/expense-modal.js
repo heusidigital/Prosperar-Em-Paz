@@ -69,11 +69,13 @@ window._expSave = function(mk, existingId) {
   if (!desc || !amount || !date) return alert('Preencha todos os campos.');
   const tx = { id: existingId || uuid(), date, type: 'expense', amount, category: cat, desc, pending };
   existingId ? updateTransaction(mk, tx) : addTransaction(mk, tx);
+  toast(existingId ? '✓ Despesa atualizada' : '✓ Despesa adicionada');
   closeModal();
 };
 
-window._expDelete = function(mk, id) {
-  if (!confirm('Excluir esta despesa?')) return;
+window._expDelete = async function(mk, id) {
+  if (!await appConfirm('Excluir esta despesa?', 'Excluir')) return;
   removeTransaction(mk, id);
+  toast('✓ Despesa excluída');
   closeModal();
 };
