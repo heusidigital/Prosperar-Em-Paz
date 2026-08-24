@@ -275,6 +275,8 @@ input,select{font-family:inherit;font-size:inherit;color:inherit}
   color:var(--income);border-top:1px solid var(--line-soft);
 }
 .row.carry .r-name{color:var(--ink-soft);font-style:italic}
+.row.adjust{background:var(--paper);border-top:1px solid var(--line)}
+.row.adjust .val{border-color:var(--line);background:#fff}
 .card-title-row h2{font-family:var(--f-display);font-weight:800;font-size:1.05rem;letter-spacing:.5px;color:var(--green-deep);text-transform:uppercase}
 .card-title-row input.c-name{
   font-family:var(--f-display);font-weight:800;font-size:1.05rem;letter-spacing:.5px;
@@ -392,7 +394,7 @@ function parseMoney(str){
   let s = String(str).replace(/[R$\s]/g,'');
   if (!s) return 0;
   if (s.includes(',')) s = s.replace(/\./g,'').replace(',','.');
-  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g,'');  // "1.234" = mil e 234
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g,'');  // "1.234" = mil e 234
   const n = parseFloat(s);
   return isNaN(n) ? 0 : Math.round(n * 100);
 }
@@ -462,7 +464,7 @@ function ensureMonth(mk){
     }
     save(monthKeyStore(mk), M);
   }
-  M.cc ??= {}; M.ccPag ??= {}; M.cd ??= { saldo:null, lanc:[] }; M.noCartao ??= {}; M.diaPag ??= {};
+  M.cc ??= {}; M.ccPag ??= {}; M.cd ??= { saldo:null, lanc:[] }; M.noCartao ??= {}; M.diaPag ??= {}; M.ajuste ??= {};
   return M;
 }
 function saveMonth(mk, M){ save(monthKeyStore(mk), M); }
@@ -489,21 +491,24 @@ const rawMonth = mk => load(monthKeyStore(mk), null);
 const sumV = arr => arr.reduce((s, x) => s + (x.valor || 0), 0);
 const ccLancOf = (cardId, fmk) => rawMonth(fmk)?.cc?.[cardId] ?? [];
 const ccPagOf  = (cardId, fmk) => rawMonth(fmk)?.ccPag?.[cardId] ?? [];
+/* ajuste manual da fatura: débitos automáticos e parcelamentos que não passam pelo app */
+const ccAjusteOf = (cardId, fmk) => rawMonth(fmk)?.ajuste?.[cardId] ?? 0;
 function restoAnterior(cardId, fmk){
   const mks = monthsWithData().slice().sort();
   let resto = 0;
   for (const m of mks) {
     if (m >= fmk) break;
-    resto = Math.max(0, resto + sumV(ccLancOf(cardId, m)) - sumV(ccPagOf(cardId, m)));
+    resto = Math.max(0, resto + sumV(ccLancOf(cardId, m)) + ccAjusteOf(cardId, m) - sumV(ccPagOf(cardId, m)));
   }
   return resto;
 }
 function faturaInfo(cardId, fmk){
   const lanc  = ccLancOf(cardId, fmk);
   const antes = restoAnterior(cardId, fmk);
-  const total = sumV(lanc) + antes;
+  const aj    = ccAjusteOf(cardId, fmk);
+  const total = sumV(lanc) + antes + aj;
   const pago  = sumV(ccPagOf(cardId, fmk));
-  return { lanc, antes, total, pago, falta: total - pago };
+  return { lanc, antes, aj, total, pago, falta: total - pago };
 }
 /* em qual fatura cai uma compra do dia X, vista do mês MK */
 const faturaDestino = (card, dia) => (dia > (card.fechamento ?? 15)) ? mkShift(MK, 1) : MK;
@@ -752,6 +757,17 @@ function ccLimite(cardId, str){
   const c = E.cartoes.find(c => c.id === cardId);
   if (c) { c.limite = parseMoney(str); saveE(); render(); }
 }
+/* disponível: informado por você (o app não calcula — a fatura real tem
+   débitos automáticos e parcelamentos que não passam por aqui) */
+function ccDisp(cardId, str){
+  const c = E.cartoes.find(c => c.id === cardId);
+  if (c) { c.disponivel = parseMoney(str); saveE(); render(); }
+}
+function ccAjuste(cardId, str){
+  const M = ensureMonth(MK);
+  (M.ajuste ??= {})[cardId] = parseMoney(str);
+  saveMonth(MK, M); render();
+}
 function ccNome(cardId, nome){
   const c = E.cartoes.find(c => c.id === cardId);
   if (c && nome.trim()) { c.nome = nome.trim(); saveE(); }
@@ -988,7 +1004,7 @@ function renderCartoes(){
     <div class="row">
       <div class="r-day">DIA ${String(l.dia).padStart(2,'0')}</div>
       <div class="r-name">${esc(l.desc)}</div>
-      <div class="val readonly">${fmt(l.valor).replace('R$ ','')}</div>
+      <div class="val readonly">${fmt(l.valor).replace(/R\$\s*/, '')}</div>
       <button class="del-btn" onclick="ccDel('${cardId}','${l.id}','${fmk}')" title="Apagar lançamento">✕</button>
     </div>`;
 
@@ -997,8 +1013,6 @@ function renderCartoes(){
     const fat  = faturaInfo(card.id, fmkAtual);
     const abertoLanc = ccLancOf(card.id, fmkProx).slice().sort(byDia);
     const abertoTotal = sumV(abertoLanc);
-    const faltaFat = Math.max(0, fat.falta);
-    const disp = card.limite - faltaFat - abertoTotal;
     const pags = (M.ccPag[card.id] || []).slice().sort(byDia);
     const quitada = fat.total > 0 && fat.falta <= 0;
 
@@ -1020,12 +1034,14 @@ function renderCartoes(){
           </div>
           <div class="cc-cell">
             <div class="t-label">Limite</div>
-            <input class="t-edit" value="${card.limite ? fmt(card.limite).replace('R$ ','') : ''}"
+            <input class="t-edit" value="${card.limite ? fmt(card.limite).replace(/R\$\s*/, '') : ''}"
               placeholder="0,00" inputmode="decimal" onchange="ccLimite('${card.id}', this.value)" aria-label="limite do cartão">
           </div>
           <div class="cc-cell">
-            <div class="t-label">Disponível agora</div>
-            <div class="t-value ${disp < 0 ? 'neg' : 'pos'}">${fmt(disp)}</div>
+            <div class="t-label">Disponível</div>
+            <input class="t-edit" value="${card.disponivel ? fmt(card.disponivel).replace(/R\$\s*/, '') : ''}"
+              placeholder="0,00" inputmode="decimal" onchange="ccDisp('${card.id}', this.value)"
+              aria-label="disponível no cartão" title="você informa — o app não calcula">
           </div>
         </div>
         ${abertoLanc.length ? abertoLanc.map(l => lancRow(card.id, l, fmkProx)).join('')
@@ -1037,7 +1053,8 @@ function renderCartoes(){
           <button class="add-btn" onclick="ccAdd('${card.id}')">+ Lançar</button>
         </div>
         <div class="ledger-foot">
-          <span>Compra até o dia ${fech} entra na fatura ao lado; do dia ${fech + 1} em diante, nesta (vence em ${mkLabel(fmkProx)}).</span>
+          <span>Compra até o dia ${fech} entra na fatura ao lado; do dia ${fech + 1} em diante, nesta (vence em ${mkLabel(fmkProx)}).<br>
+          <b>Limite e disponível são informados por você</b> — copie do app do banco.</span>
         </div>
       </div>
 
@@ -1064,7 +1081,7 @@ function renderCartoes(){
           <div class="row carry">
             <div class="r-day">—</div>
             <div class="r-name">Saldo da fatura anterior</div>
-            <div class="val readonly">${fmt(fat.antes).replace('R$ ','')}</div>
+            <div class="val readonly">${fmt(fat.antes).replace(/R\$\s*/, '')}</div>
             <span style="width:35px"></span>
           </div>` : ''}
         ${fat.lanc.length ? fat.lanc.slice().sort(byDia).map(l => lancRow(card.id, l, fmkAtual)).join('')
@@ -1074,7 +1091,7 @@ function renderCartoes(){
           <div class="row done">
             <div class="r-day">DIA ${String(p.dia).padStart(2,'0')}</div>
             <div class="r-name">Pagamento</div>
-            <div class="val readonly" style="color:var(--income)">− ${fmt(p.valor).replace('R$ ','')}</div>
+            <div class="val readonly" style="color:var(--income)">− ${fmt(p.valor).replace(/R\$\s*/, '')}</div>
             <button class="del-btn" onclick="ccPagDel('${card.id}','${p.id}')" title="Apagar pagamento">✕</button>
           </div>`).join('')
         : `<div class="empty">Nenhum pagamento ainda. Cada pagamento libera limite na hora.</div>`}
@@ -1082,6 +1099,16 @@ function renderCartoes(){
           <input class="a-val" id="ccpag-val-${card.id}" placeholder="valor pago" inputmode="decimal" style="flex:1">
           <input class="a-day" id="ccpag-dia-${card.id}" placeholder="dia" inputmode="numeric">
           <button class="add-btn" onclick="ccPagAdd('${card.id}')">+ Pagar</button>
+        </div>
+        <div class="row adjust">
+          <div class="r-name-wrap" style="padding-left:6px">
+            <b>Ajustes</b>
+            <small>débitos do banco e parcelamentos — para bater com a fatura</small>
+          </div>
+          <input class="val" value="${fat.aj ? fmt(fat.aj).replace(/R\$\s*/, '') : ''}" placeholder="0,00"
+            inputmode="decimal" onchange="ccAjuste('${card.id}', this.value)"
+            aria-label="ajuste da fatura" title="soma ao total da fatura (use - para descontar)">
+          <span style="width:30px"></span>
         </div>
         <div class="ledger-foot">
           <span>O que ficar sem pagar entra na fatura seguinte como "saldo anterior".</span>
