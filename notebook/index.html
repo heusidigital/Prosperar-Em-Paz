@@ -139,8 +139,8 @@ input,select{font-family:inherit;font-size:inherit;color:inherit}
 .ledger-head .lh-total small{font-family:var(--f-body);font-weight:600;font-size:.72rem;color:var(--ink-soft);letter-spacing:1px;margin-right:8px}
 
 .row{
-  display:flex;align-items:center;gap:12px;
-  padding:10px 20px;border-bottom:1px solid var(--line-soft);
+  display:flex;align-items:center;gap:8px;
+  padding:10px 14px;border-bottom:1px solid var(--line-soft);
   min-height:54px;
 }
 .row:last-child{border-bottom:none}
@@ -155,9 +155,9 @@ input,select{font-family:inherit;font-size:inherit;color:inherit}
 .r-late{color:var(--late);font-size:.72rem;font-weight:700;letter-spacing:1px;margin-left:8px;white-space:nowrap;display:inline-block}
 .val{
   font-family:var(--f-mono);font-weight:600;font-size:1.05rem;
-  width:112px;text-align:right;
+  width:100px;text-align:right;
   border:1px solid transparent;border-radius:8px;background:transparent;
-  padding:8px 10px;
+  padding:8px 8px;
 }
 .val:hover{border-color:var(--line)}
 .val:focus{border-color:var(--green-deep);background:#fff;outline:none}
@@ -166,8 +166,8 @@ input,select{font-family:inherit;font-size:inherit;color:inherit}
 /* stamp button */
 .stamp-btn{
   border:2px solid var(--line);background:#fff;color:var(--ink-soft);
-  font-weight:700;font-size:.8rem;letter-spacing:1.5px;
-  padding:9px 14px;border-radius:8px;min-width:118px;
+  font-weight:700;font-size:.78rem;letter-spacing:1px;
+  padding:9px 8px;border-radius:8px;min-width:104px;
 }
 .stamp-btn:hover{border-color:var(--green-deep);color:var(--green-deep)}
 .stamp-btn.stamped{
@@ -180,10 +180,36 @@ input,select{font-family:inherit;font-size:inherit;color:inherit}
 
 .cc-send{
   border:1px solid var(--line);background:#fff;border-radius:8px;
-  padding:8px 9px;font-size:.85rem;font-family:var(--f-mono);font-weight:600;
+  padding:8px 7px;font-size:.85rem;font-family:var(--f-mono);font-weight:600;
   color:var(--ink-soft);white-space:nowrap;
 }
 .cc-send:hover{border-color:var(--green-deep);color:var(--green-deep);background:var(--income-bg)}
+
+/* campos editáveis dentro da linha */
+.r-day-edit{
+  width:44px;text-align:center;
+  font-family:var(--f-mono);font-weight:600;font-size:.85rem;color:var(--ink-soft);
+  border:1px solid transparent;border-radius:6px;background:transparent;padding:6px 2px;
+}
+.r-name-wrap{flex:1;min-width:70px;display:flex;flex-direction:column;align-items:flex-start}
+.r-name-wrap small{font-size:.8rem;color:var(--ink-soft);padding-left:7px}
+.r-name-edit{
+  width:100%;font-weight:600;font-size:1.0625rem;font-family:inherit;
+  border:1px solid transparent;border-radius:6px;background:transparent;padding:6px 6px;
+}
+.r-day-edit:hover,.r-name-edit:hover,.r-pgto:hover{border-color:var(--line)}
+.r-day-edit:focus,.r-name-edit:focus,.r-pgto:focus{border-color:var(--green-deep);background:#fff;outline:none}
+.r-pgto{
+  width:52px;text-align:center;
+  font-family:var(--f-mono);font-weight:600;font-size:.9rem;
+  border:1px solid var(--line-soft);border-radius:6px;background:#fff;padding:7px 2px;
+}
+.pay-group{display:flex;align-items:center;gap:5px}
+.col-head{
+  display:flex;align-items:center;gap:8px;padding:7px 14px 6px;
+  border-bottom:1px solid var(--line-soft);background:var(--paper);
+  font-size:.66rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--ink-soft);
+}
 
 .del-btn{
   background:none;border:none;color:var(--line);font-size:1.1rem;
@@ -252,7 +278,8 @@ input,select{font-family:inherit;font-size:inherit;color:inherit}
 .card-title-row h2{font-family:var(--f-display);font-weight:800;font-size:1.05rem;letter-spacing:.5px;color:var(--green-deep);text-transform:uppercase}
 .card-title-row input.c-name{
   font-family:var(--f-display);font-weight:800;font-size:1.05rem;letter-spacing:.5px;
-  color:var(--green-deep);text-transform:uppercase;border:none;background:transparent;width:60%;
+  color:var(--green-deep);text-transform:uppercase;border:none;background:transparent;
+  flex:1;min-width:0;
 }
 .card-title-row input.c-name:focus{outline:2px solid var(--line);border-radius:6px}
 
@@ -435,7 +462,7 @@ function ensureMonth(mk){
     }
     save(monthKeyStore(mk), M);
   }
-  M.cc ??= {}; M.ccPag ??= {}; M.cd ??= { saldo:null, lanc:[] }; M.noCartao ??= {};
+  M.cc ??= {}; M.ccPag ??= {}; M.cd ??= { saldo:null, lanc:[] }; M.noCartao ??= {}; M.diaPag ??= {};
   return M;
 }
 function saveMonth(mk, M){ save(monthKeyStore(mk), M); }
@@ -557,30 +584,92 @@ function cardNum(cardId){
   const i = E.cartoes.findIndex(c => c.id === cardId);
   return i >= 0 ? i + 1 : '';
 }
+/* dia em que a conta foi/será PAGA (não o vencimento) — é ele que define a fatura */
+function diaPagOf(M, itemId, diaVenc){
+  if (M.diaPag && M.diaPag[itemId]) return M.diaPag[itemId];
+  return (MK === mkNow()) ? new Date().getDate() : (diaVenc || 1);
+}
 function sendToCard(tipo, itemId, cardId){
-  const v = valOf(ensureMonth(MK), itemId);
+  const M0 = ensureMonth(MK);
+  const v = valOf(M0, itemId);
   if (!v) { toast('Preencha o valor primeiro'); return; }
   const it = E[tipo].find(i => i.id === itemId);
   const card = E.cartoes.find(c => c.id === cardId);
   if (!it || !card) return;
-  const fmk = faturaDestino(card, it.dia || 1);
-  const l = { id: uid(), desc: it.nome, valor: v, dia: it.dia || 1 };
+  const diaPg = diaPagOf(M0, itemId, it.dia);
+  const fmk = faturaDestino(card, diaPg);
+  const l = { id: uid(), desc: it.nome, valor: v, dia: diaPg };
   const Mf = ensureMonth(fmk);
   (Mf.cc[cardId] ??= []).push(l);
   saveMonth(fmk, Mf);
   const M = ensureMonth(MK);
   M.pagos[itemId] = true;
+  (M.diaPag ??= {})[itemId] = diaPg;
   M.noCartao[itemId] = { cardId, lancId: l.id, fmk };
   saveMonth(MK, M);
-  toast(`✓ ${it.nome} na fatura de ${mkLabel(fmk)} do ${card.nome}`);
+  toast(`✓ ${it.nome} · pago dia ${diaPg} · fatura de ${mkLabel(fmk)}`);
   render();
+}
+/* mantém o lançamento no cartão igual ao item (valor, nome ou dia mudou) */
+function syncLanc(itemId, patch){
+  const M = ensureMonth(MK);
+  const nc = M.noCartao?.[itemId];
+  if (!nc) return;
+  // um único objeto por mês: dois "ensureMonth" do mesmo mês se sobrescreveriam ao gravar
+  const cache = { [MK]: M };
+  const mes = mk => (cache[mk] ??= ensureMonth(mk));
+  const origem = nc.fmk || MK;
+  const Mo = mes(origem);
+  const l = (Mo.cc[nc.cardId] || []).find(x => x.id === nc.lancId);
+  if (!l) return;
+  Object.assign(l, patch);
+  if (patch.dia != null) {
+    const card = E.cartoes.find(c => c.id === nc.cardId);
+    const destino = faturaDestino(card, patch.dia);
+    if (destino !== origem) {
+      Mo.cc[nc.cardId] = (Mo.cc[nc.cardId] || []).filter(x => x.id !== nc.lancId);
+      (mes(destino).cc[nc.cardId] ??= []).push(l);
+      nc.fmk = destino;
+    }
+  }
+  for (const [mk, obj] of Object.entries(cache)) saveMonth(mk, obj);
 }
 function setValor(id, str){
   const M = ensureMonth(MK);
   const v = parseMoney(str);
   M.valores[id] = v; DEF[id] = v;
-  saveMonth(MK, M); saveDEF(); render();
+  saveMonth(MK, M); saveDEF();
+  syncLanc(id, { valor: v });
+  render();
 }
+function setNome(tipo, id, nome){
+  nome = nome.trim();
+  if (!nome) { render(); return; }
+  const it = E[tipo].find(i => i.id === id);
+  if (!it) return;
+  it.nome = nome; saveE();
+  syncLanc(id, { desc: nome });
+  render();
+}
+function setDiaVenc(tipo, id, v){
+  const n = parseInt(v, 10);
+  const it = E[tipo].find(i => i.id === id);
+  if (!it) return;
+  it.dia = (n >= 1 && n <= 31) ? n : 1;
+  saveE(); render();
+}
+function setDiaPag(id, v){
+  const M = ensureMonth(MK);
+  const n = parseInt(v, 10);
+  (M.diaPag ??= {});
+  if (n >= 1 && n <= 31) M.diaPag[id] = n; else delete M.diaPag[id];
+  saveMonth(MK, M);
+  if (n >= 1 && n <= 31) syncLanc(id, { dia: n });
+  render();
+}
+/* esvazia os campos de um formulário depois de gravar */
+function limpar(...ids){ for (const id of ids) { const el = document.getElementById(id); if (el) el.value = ''; } }
+
 function addItem(tipo){
   const nome = document.getElementById(`add-nome-${tipo}`).value.trim();
   const dia  = parseInt(document.getElementById(`add-dia-${tipo}`)?.value, 10) || null;
@@ -593,6 +682,7 @@ function addItem(tipo){
   const M = ensureMonth(MK);
   const v = parseMoney(valS);
   if (v) { M.valores[it.id] = v; DEF[it.id] = v; saveMonth(MK, M); saveDEF(); }
+  limpar(`add-nome-${tipo}`, `add-dia-${tipo}`, `add-val-${tipo}`, `add-inst-${tipo}`);
   toast('✓ Adicionado'); render();
 }
 function removeItem(tipo, id, nome){
@@ -612,6 +702,7 @@ function ccAdd(cardId){
   const Mf = ensureMonth(fmk);
   (Mf.cc[cardId] ??= []).push({ id: uid(), desc, valor: val, dia });
   saveMonth(fmk, Mf);
+  limpar(`cc-desc-${cardId}`, `cc-val-${cardId}`, `cc-dia-${cardId}`);
   toast(`✓ Lançado na fatura de ${mkLabel(fmk)}`);
   render();
 }
@@ -641,6 +732,7 @@ function ccPagAdd(cardId){
   const M = ensureMonth(MK);
   ((M.ccPag ??= {})[cardId] ??= []).push({ id: uid(), valor: val, dia });
   saveMonth(MK, M);
+  limpar(`ccpag-val-${cardId}`, `ccpag-dia-${cardId}`);
   toast('✓ Pagamento registrado — limite liberado');
   render();
 }
@@ -688,7 +780,9 @@ function cdAdd(){
   if (!desc || !val) { toast('Preencha a despesa e o valor'); return; }
   const M = ensureMonth(MK);
   M.cd.lanc.push({ id: uid(), desc, valor: val, dia });
-  saveMonth(MK, M); toast('✓ Lançado no débito'); render();
+  saveMonth(MK, M);
+  limpar('cd-desc', 'cd-val', 'cd-dia');
+  toast('✓ Lançado no débito'); render();
 }
 function cdDel(id){
   const M = ensureMonth(MK);
@@ -736,22 +830,43 @@ const byDia = (a,b) => (a.dia||99) - (b.dia||99);
 
 function ledgerRows(tipo, itens, M, stampOn, stampOff){
   if (!itens.length) return `<div class="empty">Nada aqui ainda — use o campo abaixo para adicionar.</div>`;
-  return itens.slice().sort(byDia).map(it => {
+  const comCartao = (tipo === 'fixas' || tipo === 'debitos');
+  const head = comCartao ? `
+    <div class="col-head">
+      <span style="width:44px;text-align:center">Venc.</span>
+      <span style="flex:1;min-width:70px">Descrição</span>
+      <span style="width:100px;text-align:right">Valor</span>
+      <span style="width:52px;text-align:center">Pago dia</span>
+      <span style="width:84px;text-align:center">Cartão</span>
+      <span style="width:104px"></span>
+      <span style="width:30px"></span>
+    </div>` : '';
+  return head + itens.slice().sort(byDia).map(it => {
     const pago = !!M.pagos[it.id];
-    const late = tipo !== 'receitas' && tipo !== 'clientes' && valOf(M, it.id) > 0 && isLate(MK, it.dia, pago);
+    const late = tipo !== 'receitas' && tipo !== 'clientes'
+              && valOf(M, it.id) > 0 && isLate(MK, it.dia, pago);
     const nc = M.noCartao[it.id];
     const labelOn = nc ? `NO CARTÃO ${cardNum(nc.cardId)}` : stampOn;
-    const sendBtns = (!pago && (tipo === 'fixas' || tipo === 'debitos'))
-      ? E.cartoes.map((c, i) =>
+    const diaPg = diaPagOf(M, it.id, it.dia);
+    const payGroup = comCartao ? `
+      <span class="pay-group">
+        <input class="r-pgto" value="${diaPg}" inputmode="numeric" title="dia em que a conta foi paga"
+          aria-label="dia do pagamento" onchange="setDiaPag('${it.id}', this.value)">
+        ${pago ? '<span style="width:84px"></span>' : E.cartoes.map((c, i) =>
           `<button class="cc-send" onclick="sendToCard('${tipo}','${it.id}','${c.id}')"
-            title="Lançar no ${esc(c.nome)}">💳${i + 1}</button>`).join('')
-      : '';
+            title="Pagar com o ${esc(c.nome)} no dia ${diaPg}">💳${i + 1}</button>`).join('')}
+      </span>` : '';
     return `<div class="row ${pago ? 'done' : ''}">
-      <div class="r-day">DIA ${String(it.dia).padStart(2,'0')}</div>
-      <div class="r-name">${esc(it.nome)}${late ? '<span class="r-late">ATRASADO</span>' : ''}
-        ${it.sub ? `<small>${esc(it.sub)}</small>` : ''}${it.inst ? `<small>${esc(it.inst)}</small>` : ''}</div>
+      <input class="r-day-edit" value="${String(it.dia).padStart(2,'0')}" inputmode="numeric"
+        title="dia do vencimento" aria-label="dia do vencimento" onchange="setDiaVenc('${tipo}','${it.id}', this.value)">
+      <div class="r-name-wrap">
+        <input class="r-name-edit" value="${esc(it.nome)}" title="clique para editar o nome"
+          aria-label="descrição" onchange="setNome('${tipo}','${it.id}', this.value)">
+        ${it.sub || it.inst ? `<small>${esc(it.sub || it.inst)}</small>` : ''}
+        ${late ? '<span class="r-late">ATRASADO</span>' : ''}
+      </div>
       ${valInput(it.id, valOf(M, it.id))}
-      ${sendBtns}
+      ${payGroup}
       ${stampBtn(it.id, pago, labelOn, stampOff)}
       <button class="del-btn" onclick="removeItem('${tipo}','${it.id}','${esc(it.nome)}')" title="Remover da lista">✕</button>
     </div>`;
@@ -855,7 +970,10 @@ function renderMes(){
           <input class="a-val"  id="add-val-clientes"  placeholder="valor" inputmode="decimal">
           <button class="add-btn" onclick="addItem('clientes')">+ Adicionar</button>
         </div>
-        <div class="ledger-foot"><span>Recebido até agora: <b>${fmt(cl.pago + rc.pago)}</b></span></div>
+        <div class="ledger-foot">
+          <span><b>Total de receitas do mês (fixas + clientes): ${fmt(rc.tot + cl.tot)}</b>
+            &nbsp;·&nbsp; já recebido ${fmt(rc.pago + cl.pago)} · falta entrar ${fmt((rc.tot + cl.tot) - (rc.pago + cl.pago))}</span>
+        </div>
       </div>
     </div>
   </div>`;
