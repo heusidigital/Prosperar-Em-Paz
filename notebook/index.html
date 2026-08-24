@@ -148,14 +148,14 @@ input,select{font-family:inherit;font-size:inherit;color:inherit}
 .row.done .r-name{color:var(--ink-soft)}
 .r-day{
   font-family:var(--f-mono);font-weight:600;font-size:.85rem;color:var(--ink-soft);
-  min-width:56px;
+  min-width:48px;
 }
-.r-name{flex:1;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.r-name{flex:1;font-weight:600;min-width:0;overflow-wrap:break-word}
 .r-name small{display:block;font-weight:400;font-size:.8rem;color:var(--ink-soft)}
 .r-late{color:var(--late);font-size:.72rem;font-weight:700;letter-spacing:1px;margin-left:8px;white-space:nowrap;display:inline-block}
 .val{
   font-family:var(--f-mono);font-weight:600;font-size:1.05rem;
-  width:130px;text-align:right;
+  width:112px;text-align:right;
   border:1px solid transparent;border-radius:8px;background:transparent;
   padding:8px 10px;
 }
@@ -389,11 +389,15 @@ function defaultEstrutura(){
 let E = load('estrutura', null);
 if (!E) { E = defaultEstrutura(); save('estrutura', E); }
 const saveE = () => save('estrutura', E);
-/* migração: quem começou com um cartão genérico passa a ter Cartão 1 e Cartão 2 */
-if (E.cartoes.length === 1 && E.cartoes[0].nome === 'CARTÃO DE CRÉDITO') {
-  E.cartoes[0].nome = 'CARTÃO 1';
-  E.cartoes.push({ id:'cc_2', nome:'CARTÃO 2', limite:0 });
-  saveE();
+/* migração: garante sempre DOIS cartões numerados */
+{
+  let mudou = false;
+  if (E.cartoes.length && E.cartoes[0].nome === 'CARTÃO DE CRÉDITO') { E.cartoes[0].nome = 'CARTÃO 1'; mudou = true; }
+  while (E.cartoes.length < 2) {
+    E.cartoes.push({ id: uid(), nome: `CARTÃO ${E.cartoes.length + 1}`, limite: 0 });
+    mudou = true;
+  }
+  if (mudou) saveE();
 }
 
 /* valores-padrão: último valor conhecido de cada item (prefil de mês novo) */
