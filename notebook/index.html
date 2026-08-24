@@ -772,19 +772,19 @@ function renderMes(){
   document.getElementById('page-mes').innerHTML = `
   <div class="tiles">
     <div class="tile income">
-      <div class="t-label">Entra no mês</div>
-      <div class="t-value">${fmt(t.entradasPrev)}</div>
-      <div class="t-sub">recebido até agora: <b>${fmt(t.entradasOk)}</b></div>
+      <div class="t-label">Já entrou</div>
+      <div class="t-value">${fmt(t.entradasOk)}</div>
+      <div class="t-sub">previsto no mês: <b>${fmt(t.entradasPrev)}</b> · falta entrar <b>${fmt(t.entradasPrev - t.entradasOk)}</b></div>
     </div>
     <div class="tile expense">
-      <div class="t-label">Sai no mês</div>
-      <div class="t-value">${fmt(t.saidasPrev)}</div>
-      <div class="t-sub">pago até agora: <b>${fmt(t.saidasOk)}</b> · falta <b>${fmt(t.saidasPrev - t.saidasOk)}</b></div>
+      <div class="t-label">Já saiu</div>
+      <div class="t-value">${fmt(t.saidasOk)}</div>
+      <div class="t-sub">previsto no mês: <b>${fmt(t.saidasPrev)}</b> · falta pagar <b>${fmt(t.saidasPrev - t.saidasOk)}</b></div>
     </div>
     <div class="tile">
-      <div class="t-label">Sobra prevista</div>
-      <div class="t-value ${t.sobra < 0 ? 'neg' : 'pos'}">${fmt(t.sobra)}</div>
-      <div class="t-sub">entradas − saídas (sem os cartões)</div>
+      <div class="t-label">Saldo até agora</div>
+      <div class="t-value ${t.entradasOk - t.saidasOk < 0 ? 'neg' : 'pos'}">${fmt(t.entradasOk - t.saidasOk)}</div>
+      <div class="t-sub">no fim do mês, se tudo entrar e sair: <b>${fmt(t.sobra)}</b> (sem os cartões)</div>
     </div>
   </div>
 
