@@ -178,6 +178,13 @@ input,select{font-family:inherit;font-size:inherit;color:inherit}
 }
 .stamp-btn.stamped:hover{opacity:.85}
 
+.cc-send{
+  border:1px solid var(--line);background:#fff;border-radius:8px;
+  padding:8px 9px;font-size:.85rem;font-family:var(--f-mono);font-weight:600;
+  color:var(--ink-soft);white-space:nowrap;
+}
+.cc-send:hover{border-color:var(--green-deep);color:var(--green-deep);background:var(--income-bg)}
+
 .del-btn{
   background:none;border:none;color:var(--line);font-size:1.1rem;
   padding:8px;border-radius:8px;line-height:1;
@@ -374,13 +381,20 @@ function defaultEstrutura(){
     clientes: [],
     emprestimos: [],
     cartoes: [
-      { id:'cc_1', nome:'CARTÃO DE CRÉDITO', limite:0 },
+      { id:'cc_1', nome:'CARTÃO 1', limite:0 },
+      { id:'cc_2', nome:'CARTÃO 2', limite:0 },
     ],
   };
 }
 let E = load('estrutura', null);
 if (!E) { E = defaultEstrutura(); save('estrutura', E); }
 const saveE = () => save('estrutura', E);
+/* migração: quem começou com um cartão genérico passa a ter Cartão 1 e Cartão 2 */
+if (E.cartoes.length === 1 && E.cartoes[0].nome === 'CARTÃO DE CRÉDITO') {
+  E.cartoes[0].nome = 'CARTÃO 1';
+  E.cartoes.push({ id:'cc_2', nome:'CARTÃO 2', limite:0 });
+  saveE();
+}
 
 /* valores-padrão: último valor conhecido de cada item (prefil de mês novo) */
 let DEF = load('defaults', {});
@@ -403,7 +417,7 @@ function ensureMonth(mk){
     }
     save(monthKeyStore(mk), M);
   }
-  M.cc ??= {}; M.cd ??= { saldo:null, lanc:[] };
+  M.cc ??= {}; M.cd ??= { saldo:null, lanc:[] }; M.noCartao ??= {};
   return M;
 }
 function saveMonth(mk, M){ save(monthKeyStore(mk), M); }
@@ -475,9 +489,38 @@ document.addEventListener('click', e => {
 /* ════════════════ AÇÕES ════════════════ */
 function togglePago(id){
   const M = ensureMonth(MK);
-  if (M.pagos[id]) { delete M.pagos[id]; toast('Desmarcado'); }
+  if (M.pagos[id]) {
+    delete M.pagos[id];
+    const nc = M.noCartao[id];
+    if (nc) {
+      M.cc[nc.cardId] = (M.cc[nc.cardId] || []).filter(l => l.id !== nc.lancId);
+      delete M.noCartao[id];
+      toast('Desmarcado — removido do cartão');
+    } else toast('Desmarcado');
+  }
   else { M.pagos[id] = true; toast('✓ Carimbado'); }
   saveMonth(MK, M); render();
+}
+
+/* manda a despesa do mês para um cartão de crédito */
+function cardNum(cardId){
+  const i = E.cartoes.findIndex(c => c.id === cardId);
+  return i >= 0 ? i + 1 : '';
+}
+function sendToCard(tipo, itemId, cardId){
+  const M = ensureMonth(MK);
+  const v = valOf(M, itemId);
+  if (!v) { toast('Preencha o valor primeiro'); return; }
+  const it = E[tipo].find(i => i.id === itemId);
+  const card = E.cartoes.find(c => c.id === cardId);
+  if (!it || !card) return;
+  const l = { id: uid(), desc: it.nome, valor: v, dia: it.dia || 1 };
+  (M.cc[cardId] ??= []).push(l);
+  M.pagos[itemId] = true;
+  M.noCartao[itemId] = { cardId, lancId: l.id };
+  saveMonth(MK, M);
+  toast(`✓ ${it.nome} lançado no ${card.nome}`);
+  render();
 }
 function setValor(id, str){
   const M = ensureMonth(MK);
@@ -518,6 +561,10 @@ function ccAdd(cardId){
 function ccDel(cardId, id){
   const M = ensureMonth(MK);
   M.cc[cardId] = (M.cc[cardId] || []).filter(l => l.id !== id);
+  // se o lançamento veio de uma despesa d'O Mês, a linha volta a "em aberto"
+  for (const [itemId, nc] of Object.entries(M.noCartao)) {
+    if (nc.lancId === id) { delete M.noCartao[itemId]; delete M.pagos[itemId]; }
+  }
   saveMonth(MK, M); render();
 }
 function ccLimite(cardId, str){
@@ -603,12 +650,20 @@ function ledgerRows(tipo, itens, M, stampOn, stampOff){
   return itens.slice().sort(byDia).map(it => {
     const pago = !!M.pagos[it.id];
     const late = tipo !== 'receitas' && tipo !== 'clientes' && valOf(M, it.id) > 0 && isLate(MK, it.dia, pago);
+    const nc = M.noCartao[it.id];
+    const labelOn = nc ? `NO CARTÃO ${cardNum(nc.cardId)}` : stampOn;
+    const sendBtns = (!pago && (tipo === 'fixas' || tipo === 'debitos'))
+      ? E.cartoes.map((c, i) =>
+          `<button class="cc-send" onclick="sendToCard('${tipo}','${it.id}','${c.id}')"
+            title="Lançar no ${esc(c.nome)}">💳${i + 1}</button>`).join('')
+      : '';
     return `<div class="row ${pago ? 'done' : ''}">
       <div class="r-day">DIA ${String(it.dia).padStart(2,'0')}</div>
       <div class="r-name">${esc(it.nome)}${late ? '<span class="r-late">ATRASADO</span>' : ''}
         ${it.sub ? `<small>${esc(it.sub)}</small>` : ''}${it.inst ? `<small>${esc(it.inst)}</small>` : ''}</div>
       ${valInput(it.id, valOf(M, it.id))}
-      ${stampBtn(it.id, pago, stampOn, stampOff)}
+      ${sendBtns}
+      ${stampBtn(it.id, pago, labelOn, stampOff)}
       <button class="del-btn" onclick="removeItem('${tipo}','${it.id}','${esc(it.nome)}')" title="Remover da lista">✕</button>
     </div>`;
   }).join('');
