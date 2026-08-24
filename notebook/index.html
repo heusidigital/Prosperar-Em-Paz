@@ -236,7 +236,19 @@ input,select{font-family:inherit;font-size:inherit;color:inherit}
 .neg{color:var(--expense)!important}
 .pos{color:var(--income)!important}
 
-.card-title-row{display:flex;justify-content:space-between;align-items:center;padding:14px 20px 10px;border-bottom:2px solid var(--green-deep)}
+.card-title-row{display:flex;justify-content:space-between;align-items:center;padding:14px 20px 10px;border-bottom:2px solid var(--green-deep);gap:10px}
+.card-sub{font-size:.8rem;color:var(--ink-soft);font-weight:500;white-space:nowrap}
+.card-sub input{
+  width:44px;text-align:center;font-family:var(--f-mono);font-weight:600;
+  border:1px dashed var(--line);border-radius:6px;padding:3px 2px;background:transparent;
+}
+.card-sub input:focus{border-color:var(--green-deep);background:#fff;outline:none}
+.pay-divider{
+  padding:9px 20px 7px;background:var(--income-bg);
+  font-size:.72rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:var(--income);border-top:1px solid var(--line-soft);
+}
+.row.carry .r-name{color:var(--ink-soft);font-style:italic}
 .card-title-row h2{font-family:var(--f-display);font-weight:800;font-size:1.05rem;letter-spacing:.5px;color:var(--green-deep);text-transform:uppercase}
 .card-title-row input.c-name{
   font-family:var(--f-display);font-weight:800;font-size:1.05rem;letter-spacing:.5px;
@@ -381,8 +393,8 @@ function defaultEstrutura(){
     clientes: [],
     emprestimos: [],
     cartoes: [
-      { id:'cc_1', nome:'CARTÃO 1', limite:0 },
-      { id:'cc_2', nome:'CARTÃO 2', limite:0 },
+      { id:'cc_1', nome:'CARTÃO 1', limite:0, fechamento:15 },
+      { id:'cc_2', nome:'CARTÃO 2', limite:0, fechamento:15 },
     ],
   };
 }
@@ -394,9 +406,10 @@ const saveE = () => save('estrutura', E);
   let mudou = false;
   if (E.cartoes.length && E.cartoes[0].nome === 'CARTÃO DE CRÉDITO') { E.cartoes[0].nome = 'CARTÃO 1'; mudou = true; }
   while (E.cartoes.length < 2) {
-    E.cartoes.push({ id: uid(), nome: `CARTÃO ${E.cartoes.length + 1}`, limite: 0 });
+    E.cartoes.push({ id: uid(), nome: `CARTÃO ${E.cartoes.length + 1}`, limite: 0, fechamento: 15 });
     mudou = true;
   }
+  for (const c of E.cartoes) if (c.fechamento == null) { c.fechamento = 15; mudou = true; }
   if (mudou) saveE();
 }
 
@@ -421,7 +434,7 @@ function ensureMonth(mk){
     }
     save(monthKeyStore(mk), M);
   }
-  M.cc ??= {}; M.cd ??= { saldo:null, lanc:[] }; M.noCartao ??= {};
+  M.cc ??= {}; M.ccPag ??= {}; M.cd ??= { saldo:null, lanc:[] }; M.noCartao ??= {};
   return M;
 }
 function saveMonth(mk, M){ save(monthKeyStore(mk), M); }
@@ -438,6 +451,34 @@ function monthsWithData(){
 /* ── estado corrente ──────────────────────────────────────── */
 let MK = mkNow();
 let PAGE = 'mes';
+
+/* ── FATURAS DE CARTÃO ────────────────────────────────────── */
+/* A fatura de um mês fecha no dia `fechamento` do cartão.
+   Compra com dia > fechamento (vista do mês M) cai na fatura de M+1.
+   O que ficar sem pagar de uma fatura rola para a seguinte como
+   "saldo anterior" — e segue ocupando o limite até ser pago. */
+const rawMonth = mk => load(monthKeyStore(mk), null);
+const sumV = arr => arr.reduce((s, x) => s + (x.valor || 0), 0);
+const ccLancOf = (cardId, fmk) => rawMonth(fmk)?.cc?.[cardId] ?? [];
+const ccPagOf  = (cardId, fmk) => rawMonth(fmk)?.ccPag?.[cardId] ?? [];
+function restoAnterior(cardId, fmk){
+  const mks = monthsWithData().slice().sort();
+  let resto = 0;
+  for (const m of mks) {
+    if (m >= fmk) break;
+    resto = Math.max(0, resto + sumV(ccLancOf(cardId, m)) - sumV(ccPagOf(cardId, m)));
+  }
+  return resto;
+}
+function faturaInfo(cardId, fmk){
+  const lanc  = ccLancOf(cardId, fmk);
+  const antes = restoAnterior(cardId, fmk);
+  const total = sumV(lanc) + antes;
+  const pago  = sumV(ccPagOf(cardId, fmk));
+  return { lanc, antes, total, pago, falta: total - pago };
+}
+/* em qual fatura cai uma compra do dia X, vista do mês MK */
+const faturaDestino = (card, dia) => (dia > (card.fechamento ?? 15)) ? mkShift(MK, 1) : MK;
 
 /* valor efetivo de um item no mês */
 const valOf = (M, id) => M.valores[id] ?? 0;
@@ -496,14 +537,18 @@ function togglePago(id){
   if (M.pagos[id]) {
     delete M.pagos[id];
     const nc = M.noCartao[id];
+    if (nc) delete M.noCartao[id];
+    saveMonth(MK, M);
     if (nc) {
-      M.cc[nc.cardId] = (M.cc[nc.cardId] || []).filter(l => l.id !== nc.lancId);
-      delete M.noCartao[id];
+      const fmk = nc.fmk || MK;
+      const Mf = ensureMonth(fmk);
+      Mf.cc[nc.cardId] = (Mf.cc[nc.cardId] || []).filter(l => l.id !== nc.lancId);
+      saveMonth(fmk, Mf);
       toast('Desmarcado — removido do cartão');
     } else toast('Desmarcado');
   }
-  else { M.pagos[id] = true; toast('✓ Carimbado'); }
-  saveMonth(MK, M); render();
+  else { M.pagos[id] = true; toast('✓ Carimbado'); saveMonth(MK, M); }
+  render();
 }
 
 /* manda a despesa do mês para um cartão de crédito */
@@ -512,18 +557,21 @@ function cardNum(cardId){
   return i >= 0 ? i + 1 : '';
 }
 function sendToCard(tipo, itemId, cardId){
-  const M = ensureMonth(MK);
-  const v = valOf(M, itemId);
+  const v = valOf(ensureMonth(MK), itemId);
   if (!v) { toast('Preencha o valor primeiro'); return; }
   const it = E[tipo].find(i => i.id === itemId);
   const card = E.cartoes.find(c => c.id === cardId);
   if (!it || !card) return;
+  const fmk = faturaDestino(card, it.dia || 1);
   const l = { id: uid(), desc: it.nome, valor: v, dia: it.dia || 1 };
-  (M.cc[cardId] ??= []).push(l);
+  const Mf = ensureMonth(fmk);
+  (Mf.cc[cardId] ??= []).push(l);
+  saveMonth(fmk, Mf);
+  const M = ensureMonth(MK);
   M.pagos[itemId] = true;
-  M.noCartao[itemId] = { cardId, lancId: l.id };
+  M.noCartao[itemId] = { cardId, lancId: l.id, fmk };
   saveMonth(MK, M);
-  toast(`✓ ${it.nome} lançado no ${card.nome}`);
+  toast(`✓ ${it.nome} na fatura de ${mkLabel(fmk)} do ${card.nome}`);
   render();
 }
 function setValor(id, str){
@@ -558,18 +606,54 @@ function ccAdd(cardId){
   const val  = parseMoney(document.getElementById(`cc-val-${cardId}`).value);
   const dia  = parseInt(document.getElementById(`cc-dia-${cardId}`).value, 10) || new Date().getDate();
   if (!desc || !val) { toast('Preencha a despesa e o valor'); return; }
-  const M = ensureMonth(MK);
-  (M.cc[cardId] ??= []).push({ id: uid(), desc, valor: val, dia });
-  saveMonth(MK, M); toast('✓ Lançado no cartão'); render();
+  const card = E.cartoes.find(c => c.id === cardId);
+  const fmk = faturaDestino(card, dia);
+  const Mf = ensureMonth(fmk);
+  (Mf.cc[cardId] ??= []).push({ id: uid(), desc, valor: val, dia });
+  saveMonth(fmk, Mf);
+  toast(`✓ Lançado na fatura de ${mkLabel(fmk)}`);
+  render();
 }
-function ccDel(cardId, id){
-  const M = ensureMonth(MK);
-  M.cc[cardId] = (M.cc[cardId] || []).filter(l => l.id !== id);
+function ccDel(cardId, id, fmk){
+  fmk = fmk || MK;
+  const Mf = ensureMonth(fmk);
+  Mf.cc[cardId] = (Mf.cc[cardId] || []).filter(l => l.id !== id);
+  saveMonth(fmk, Mf);
   // se o lançamento veio de uma despesa d'O Mês, a linha volta a "em aberto"
-  for (const [itemId, nc] of Object.entries(M.noCartao)) {
-    if (nc.lancId === id) { delete M.noCartao[itemId]; delete M.pagos[itemId]; }
+  // (o envio pode ter partido do mês da fatura ou do anterior)
+  for (const vmk of [fmk, mkShift(fmk, -1)]) {
+    const Mv = rawMonth(vmk);
+    if (!Mv || !Mv.noCartao) continue;
+    let mudou = false;
+    for (const [itemId, nc] of Object.entries(Mv.noCartao)) {
+      if (nc.lancId === id) { delete Mv.noCartao[itemId]; delete Mv.pagos[itemId]; mudou = true; }
+    }
+    if (mudou) saveMonth(vmk, Mv);
   }
+  render();
+}
+/* pagamentos da fatura vencida (registrados no mês em que ela venceu) */
+function ccPagAdd(cardId){
+  const val = parseMoney(document.getElementById(`ccpag-val-${cardId}`).value);
+  const dia = parseInt(document.getElementById(`ccpag-dia-${cardId}`).value, 10) || new Date().getDate();
+  if (!val) { toast('Informe o valor do pagamento'); return; }
+  const M = ensureMonth(MK);
+  ((M.ccPag ??= {})[cardId] ??= []).push({ id: uid(), valor: val, dia });
+  saveMonth(MK, M);
+  toast('✓ Pagamento registrado — limite liberado');
+  render();
+}
+function ccPagDel(cardId, id){
+  const M = ensureMonth(MK);
+  M.ccPag[cardId] = (M.ccPag[cardId] || []).filter(p => p.id !== id);
   saveMonth(MK, M); render();
+}
+function ccFech(cardId, v){
+  const c = E.cartoes.find(c => c.id === cardId);
+  if (!c) return;
+  const n = parseInt(v, 10);
+  c.fechamento = (n >= 1 && n <= 28) ? n : 15;
+  saveE(); render();
 }
 function ccLimite(cardId, str){
   const c = E.cartoes.find(c => c.id === cardId);
@@ -582,7 +666,7 @@ function ccNome(cardId, nome){
 function ccNovoCartao(){
   const nome = prompt('Nome do cartão:', 'CARTÃO NOVO');
   if (!nome) return;
-  E.cartoes.push({ id: uid(), nome: nome.toUpperCase(), limite: 0 });
+  E.cartoes.push({ id: uid(), nome: nome.toUpperCase(), limite: 0, fechamento: 15 });
   saveE(); render();
 }
 function ccRemoverCartao(cardId, nome){
@@ -779,45 +863,110 @@ function renderMes(){
 /* ── página CARTÕES ── */
 function renderCartoes(){
   const M = ensureMonth(MK);
+  const fmkAtual = MK, fmkProx = mkShift(MK, 1);
+
+  const lancRow = (cardId, l, fmk) => `
+    <div class="row">
+      <div class="r-day">DIA ${String(l.dia).padStart(2,'0')}</div>
+      <div class="r-name">${esc(l.desc)}</div>
+      <div class="val readonly">${fmt(l.valor).replace('R$ ','')}</div>
+      <button class="del-btn" onclick="ccDel('${cardId}','${l.id}','${fmk}')" title="Apagar lançamento">✕</button>
+    </div>`;
 
   const ccHtml = E.cartoes.map(card => {
-    const lanc = (M.cc[card.id] || []).slice().sort(byDia);
-    const total = lanc.reduce((s,l) => s + l.valor, 0);
-    const disp = card.limite - total;
+    const fech = card.fechamento ?? 15;
+    const fat  = faturaInfo(card.id, fmkAtual);
+    const abertoLanc = ccLancOf(card.id, fmkProx).slice().sort(byDia);
+    const abertoTotal = sumV(abertoLanc);
+    const faltaFat = Math.max(0, fat.falta);
+    const disp = card.limite - faltaFat - abertoTotal;
+    const pags = (M.ccPag[card.id] || []).slice().sort(byDia);
+    const quitada = fat.total > 0 && fat.falta <= 0;
+
     return `
-    <div class="ledger">
-      <div class="card-title-row">
-        <input class="c-name" value="${esc(card.nome)}" onchange="ccNome('${card.id}', this.value)" title="Clique para renomear">
-        <button class="del-btn" onclick="ccRemoverCartao('${card.id}','${esc(card.nome)}')" title="Remover cartão">✕</button>
+    <div class="cols" style="margin-bottom:22px">
+
+      <div class="ledger" style="margin-bottom:0">
+        <div class="card-title-row">
+          <input class="c-name" value="${esc(card.nome)}" onchange="ccNome('${card.id}', this.value)" title="Clique para renomear">
+          <span class="card-sub">fecha dia
+            <input value="${fech}" inputmode="numeric" onchange="ccFech('${card.id}', this.value)" aria-label="dia de fechamento">
+          </span>
+          <button class="del-btn" onclick="ccRemoverCartao('${card.id}','${esc(card.nome)}')" title="Remover cartão">✕</button>
+        </div>
+        <div class="cc-top">
+          <div class="cc-cell">
+            <div class="t-label">Fatura em aberto</div>
+            <div class="t-value neg">${fmt(abertoTotal)}</div>
+          </div>
+          <div class="cc-cell">
+            <div class="t-label">Limite</div>
+            <input class="t-edit" value="${card.limite ? fmt(card.limite).replace('R$ ','') : ''}"
+              placeholder="0,00" inputmode="decimal" onchange="ccLimite('${card.id}', this.value)" aria-label="limite do cartão">
+          </div>
+          <div class="cc-cell">
+            <div class="t-label">Disponível agora</div>
+            <div class="t-value ${disp < 0 ? 'neg' : 'pos'}">${fmt(disp)}</div>
+          </div>
+        </div>
+        ${abertoLanc.length ? abertoLanc.map(l => lancRow(card.id, l, fmkProx)).join('')
+          : `<div class="empty">Nenhuma compra na fatura em aberto.</div>`}
+        <div class="add-row">
+          <input class="a-name" id="cc-desc-${card.id}" placeholder="despesa">
+          <input class="a-val"  id="cc-val-${card.id}"  placeholder="valor" inputmode="decimal">
+          <input class="a-day"  id="cc-dia-${card.id}"  placeholder="dia" inputmode="numeric">
+          <button class="add-btn" onclick="ccAdd('${card.id}')">+ Lançar</button>
+        </div>
+        <div class="ledger-foot">
+          <span>Compra até o dia ${fech} entra na fatura ao lado; do dia ${fech + 1} em diante, nesta (vence em ${mkLabel(fmkProx)}).</span>
+        </div>
       </div>
-      <div class="cc-top">
-        <div class="cc-cell">
-          <div class="t-label">Total lançado</div>
-          <div class="t-value neg">${fmt(total)}</div>
+
+      <div class="ledger" style="margin-bottom:0">
+        <div class="card-title-row">
+          <h2>Fatura de ${mkLabel(fmkAtual)}</h2>
+          <span class="card-sub">${quitada ? '✓ quitada' : `fechou dia ${fech}`}</span>
         </div>
-        <div class="cc-cell">
-          <div class="t-label">Limite</div>
-          <input class="t-edit" value="${card.limite ? fmt(card.limite).replace('R$ ','') : ''}"
-            placeholder="0,00" inputmode="decimal" onchange="ccLimite('${card.id}', this.value)" aria-label="limite do cartão">
+        <div class="cc-top">
+          <div class="cc-cell">
+            <div class="t-label">Total da fatura</div>
+            <div class="t-value">${fmt(fat.total)}</div>
+          </div>
+          <div class="cc-cell">
+            <div class="t-label">Já pago</div>
+            <div class="t-value pos">${fmt(fat.pago)}</div>
+          </div>
+          <div class="cc-cell">
+            <div class="t-label">Falta pagar</div>
+            <div class="t-value ${fat.falta > 0 ? 'neg' : 'pos'}">${fmt(Math.max(0, fat.falta))}</div>
+          </div>
         </div>
-        <div class="cc-cell">
-          <div class="t-label">Disponível</div>
-          <div class="t-value ${disp < 0 ? 'neg' : 'pos'}">${fmt(disp)}</div>
+        ${fat.antes > 0 ? `
+          <div class="row carry">
+            <div class="r-day">—</div>
+            <div class="r-name">Saldo da fatura anterior</div>
+            <div class="val readonly">${fmt(fat.antes).replace('R$ ','')}</div>
+            <span style="width:35px"></span>
+          </div>` : ''}
+        ${fat.lanc.length ? fat.lanc.slice().sort(byDia).map(l => lancRow(card.id, l, fmkAtual)).join('')
+          : (fat.antes > 0 ? '' : `<div class="empty">Sem compras nesta fatura.</div>`)}
+        <div class="pay-divider">Pagamentos da fatura</div>
+        ${pags.length ? pags.map(p => `
+          <div class="row done">
+            <div class="r-day">DIA ${String(p.dia).padStart(2,'0')}</div>
+            <div class="r-name">Pagamento</div>
+            <div class="val readonly" style="color:var(--income)">− ${fmt(p.valor).replace('R$ ','')}</div>
+            <button class="del-btn" onclick="ccPagDel('${card.id}','${p.id}')" title="Apagar pagamento">✕</button>
+          </div>`).join('')
+        : `<div class="empty">Nenhum pagamento ainda. Cada pagamento libera limite na hora.</div>`}
+        <div class="add-row">
+          <input class="a-val" id="ccpag-val-${card.id}" placeholder="valor pago" inputmode="decimal" style="flex:1">
+          <input class="a-day" id="ccpag-dia-${card.id}" placeholder="dia" inputmode="numeric">
+          <button class="add-btn" onclick="ccPagAdd('${card.id}')">+ Pagar</button>
         </div>
-      </div>
-      ${lanc.length ? lanc.map(l => `
-        <div class="row">
-          <div class="r-day">DIA ${String(l.dia).padStart(2,'0')}</div>
-          <div class="r-name">${esc(l.desc)}</div>
-          <div class="val readonly">${fmt(l.valor).replace('R$ ','')}</div>
-          <button class="del-btn" onclick="ccDel('${card.id}','${l.id}')" title="Apagar lançamento">✕</button>
-        </div>`).join('')
-      : `<div class="empty">Nenhum lançamento neste mês.</div>`}
-      <div class="add-row">
-        <input class="a-name" id="cc-desc-${card.id}" placeholder="despesa">
-        <input class="a-val"  id="cc-val-${card.id}"  placeholder="valor" inputmode="decimal">
-        <input class="a-day"  id="cc-dia-${card.id}"  placeholder="dia" inputmode="numeric">
-        <button class="add-btn" onclick="ccAdd('${card.id}')">+ Lançar</button>
+        <div class="ledger-foot">
+          <span>O que ficar sem pagar entra na fatura seguinte como "saldo anterior".</span>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -861,16 +1010,18 @@ function renderCartoes(){
     </div>`;
 
   document.getElementById('page-cartoes').innerHTML = `
+    <div class="cols" style="margin-bottom:10px">
+      <p class="section-label" style="margin-bottom:0">Mês em curso</p>
+      <p class="section-label" style="margin-bottom:0">Após o vencimento</p>
+    </div>
+    ${ccHtml}
+    <button class="link-btn" style="margin-bottom:18px" onclick="ccNovoCartao()">+ adicionar outro cartão de crédito</button>
     <div class="cols">
-      <div>
-        <p class="section-label">Crédito</p>
-        ${ccHtml}
-        <button class="link-btn" onclick="ccNovoCartao()">+ adicionar outro cartão de crédito</button>
-      </div>
       <div>
         <p class="section-label">Débito</p>
         ${cdHtml}
       </div>
+      <div></div>
     </div>`;
 }
 
@@ -964,6 +1115,33 @@ document.getElementById('backup-file').addEventListener('change', e => {
   reader.readAsText(file);
   e.target.value = '';
 });
+
+/* ── migração única: lançamentos antigos de cartão passam ao modelo de fatura ──
+   (compra com dia > fechamento pertence à fatura do mês seguinte) */
+if (!load('migr_fatura_v3', false)) {
+  for (const mk of monthsWithData()) {          // do mais novo para o mais antigo
+    const m = rawMonth(mk);
+    if (!m || !m.cc) continue;
+    let mudou = false;
+    for (const card of E.cartoes) {
+      const fech = card.fechamento ?? 15;
+      const lista = m.cc[card.id] || [];
+      const move = lista.filter(l => l.dia > fech);
+      if (!move.length) continue;
+      m.cc[card.id] = lista.filter(l => l.dia <= fech);
+      const prox = mkShift(mk, 1);
+      const Mp = ensureMonth(prox);
+      (Mp.cc[card.id] ??= []).push(...move);
+      saveMonth(prox, Mp);
+      for (const nc of Object.values(m.noCartao || {})) {
+        if (move.some(l => l.id === nc.lancId)) nc.fmk = prox;
+      }
+      mudou = true;
+    }
+    if (mudou) saveMonth(mk, m);
+  }
+  save('migr_fatura_v3', true);
+}
 
 /* ── início ── */
 render();
